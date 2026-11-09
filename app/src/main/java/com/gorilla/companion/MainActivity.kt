@@ -36,12 +36,18 @@ class MainActivity : Activity() {
     private var accountProfile: SupabaseApi.Profile? = null
     private var selectedAvatarUri: Uri? = null
     private var currentChatId: String = UUID.randomUUID().toString()
+    private var welcomeVisible = true
+    private val prefsUi by lazy { getSharedPreferences("gorilla_ui", MODE_PRIVATE) }
+    private val uiLanguage: String get() = prefsUi.getString("language", "ru") ?: "ru"
+    private val lightTheme: Boolean get() = prefsUi.getBoolean("light_theme", false)
+    private fun tr(ru: String, en: String, zh: String, uk: String): String = when (uiLanguage) { "en" -> en; "zh" -> zh; "uk" -> uk; else -> ru }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
         val prefs = getSharedPreferences("gorilla_auth", MODE_PRIVATE)
         val token = prefs.getString("access_token", null)
         val userId = prefs.getString("user_id", null)
@@ -66,8 +72,9 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dp(24), dp(24), dp(24), dp(24))
-            setBackgroundColor(bg)
+            setBackgroundColor(if (lightTheme) Color.rgb(246,247,251) else bg)
         }
+        root.addView(text("GORILLA", 25f, accent, true).apply { gravity = Gravity.CENTER })
         root.addView(text("✳", 58f, accent, true).apply { gravity = Gravity.CENTER })
         root.addView(text("GORILLA AI", 30f, Color.WHITE, true).apply {
             gravity = Gravity.CENTER
@@ -86,24 +93,24 @@ class MainActivity : Activity() {
         root.addView(avatarPreview, LinearLayout.LayoutParams(dp(76), dp(76)).apply { bottomMargin = dp(8) })
         root.addView(text("Добавить аватар (необязательно)", 12f, 0xFFB7B4C8.toInt()).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(10)) })
         val name = EditText(this).apply {
-            hint = "Твоё имя (необязательно)"
+            hint = tr("Твоё имя (необязательно)", "Your name (optional)", "你的名字（可选）", "Твоє ім’я (необов’язково)")
             setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
             setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
         }
         val email = EditText(this).apply {
-            hint = "Электронная почта"; setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
+            hint = tr("Электронная почта", "Email address", "电子邮箱", "Електронна пошта"); setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
             setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
         }
         val password = EditText(this).apply {
-            hint = "Пароль"; setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
+            hint = tr("Пароль", "Password", "密码", "Пароль"); setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
             inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
             setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
         }
         root.addView(name, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(10) })
         root.addView(email, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(10) })
         root.addView(password, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(16) })
-        val register = Button(this).apply { text = "Запросить доступ"; setOnClickListener {
+        val register = Button(this).apply { text = tr("Запросить доступ", "Request access", "申请访问", "Запросити доступ"); setOnClickListener {
             val n=name.text.toString().trim(); val e=email.text.toString().trim(); val p=password.text.toString()
             if (e.isBlank() || p.length < 8) { toast("Введи почту и пароль от 8 символов"); return@setOnClickListener }
             runAuth {
@@ -113,7 +120,7 @@ class MainActivity : Activity() {
                 } else acceptSession(created)
             }
         } }
-        val login = Button(this).apply { text = "Войти"; setOnClickListener {
+        val login = Button(this).apply { text = tr("Войти", "Sign in", "登录", "Увійти"); setOnClickListener {
             val e=email.text.toString().trim(); val p=password.text.toString()
             if (e.isBlank() || p.isBlank()) { toast("Введи почту и пароль"); return@setOnClickListener }
             runAuth { acceptSession(SupabaseApi.signIn(e,p)) }
@@ -189,7 +196,7 @@ class MainActivity : Activity() {
     private fun buildScreen() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(bg)
+            setBackgroundColor(if (lightTheme) Color.rgb(246,247,251) else bg)
             setPadding(dp(16), dp(10), dp(16), dp(10))
         }
 
@@ -245,7 +252,7 @@ class MainActivity : Activity() {
             setPadding(dp(8), dp(8), dp(4), dp(8))
         }
         composer.addView(input, LinearLayout.LayoutParams(0, -2, 1f))
-        composer.addView(text("▧", 23f, accent).apply {
+        composer.addView(text("▣", 23f, accent).apply {
             gravity = Gravity.CENTER
             setOnClickListener { pickImage() }
         }, LinearLayout.LayoutParams(dp(38), dp(44)))
@@ -257,6 +264,7 @@ class MainActivity : Activity() {
 
         setContentView(root)
         purgeExpiredChats()
+        welcomeVisible = true
         showWelcome()
     }
 
@@ -264,72 +272,24 @@ class MainActivity : Activity() {
         val brand = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dp(8), dp(30), dp(8), dp(26))
+            setPadding(dp(8), dp(24), dp(8), dp(18))
         }
-        val logo = TextView(this).apply {
-            text = "✳"
-            textSize = 42f
-            gravity = Gravity.CENTER
-            setTextColor(accent)
-            background = rounded(0xFF302747.toInt(), 28)
-        }
-        brand.addView(logo, LinearLayout.LayoutParams(dp(88), dp(88)))
+        brand.addView(text("GORILLA", 26f, accent, true).apply { gravity = Gravity.CENTER })
         brand.addView(text("GORILLA AI", 30f, Color.WHITE, true).apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(12), 0, dp(4))
+            setPadding(0, dp(10), 0, dp(4))
         })
-        brand.addView(text("Твой ИИ. Твои идеи. Твой мир.", 15f, 0xFFC5C0D6.toInt()).apply { gravity = Gravity.CENTER })
+        brand.addView(text(tr("Твой ИИ. Твои идеи. Твой мир.", "Your AI. Your ideas. Your world.", "你的人工智能，你的想法，你的世界。", "Твій ШІ. Твої ідеї. Твій світ."), 15f, 0xFFC5C0D6.toInt()).apply { gravity = Gravity.CENTER })
         messages.addView(brand)
-
         val welcome = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = rounded(panel, 24)
             setPadding(dp(16), dp(18), dp(16), dp(16))
         }
         val greetingName = accountProfile?.displayName?.takeIf { it.isNotBlank() } ?: "друг"
-        welcome.addView(text("Приветствуем, $greetingName!", 21f, Color.WHITE, true))
-        welcome.addView(text("Спасибо, что выбрал GORILLA AI. Рады быть рядом и помогать тебе!", 14f, 0xFFC5C0D6.toInt()).apply { setPadding(0, dp(8), 0, dp(14)) })
-        val avatarUri = getSharedPreferences("gorilla_profile", MODE_PRIVATE).getString("avatar_uri", null)
-        if (avatarUri != null) try {
-            val avatar = ImageView(this).apply { setImageURI(Uri.parse(avatarUri)); adjustViewBounds = true; maxHeight = dp(72) }
-            welcome.addView(avatar, LinearLayout.LayoutParams(dp(64), dp(64)))
-        } catch (_: Exception) { }
-        val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row1.addView(suggestion("⌂", "Помощь с ДЗ") { setPrompt("Помоги решить домашнее задание: ") }, LinearLayout.LayoutParams(0, dp(104), 1f))
-        row1.addView(space(dp(8)))
-        row1.addView(suggestion("▧", "Создать фото") { setPrompt("Создай изображение: ") }, LinearLayout.LayoutParams(0, dp(104), 1f))
-        val row2 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        row2.addView(suggestion("♧", "Совет по стилю") { setPrompt("Помоги подобрать образ: ") }, LinearLayout.LayoutParams(0, dp(104), 1f))
-        row2.addView(space(dp(8)))
-        row2.addView(suggestion("♡", "Поговорить") { setPrompt("Я хочу поговорить по душам. ") }, LinearLayout.LayoutParams(0, dp(104), 1f))
-        grid.addView(row1)
-        grid.addView(space( dp(8)))
-        grid.addView(row2)
-        welcome.addView(grid)
+        welcome.addView(text(tr("Приветствуем, $greetingName!", "Welcome, $greetingName!", "欢迎你，$greetingName！", "Вітаємо, $greetingName!"), 21f, Color.WHITE, true))
+        welcome.addView(text(tr("Спасибо, что выбрал GORILLA AI. Рады быть рядом и помогать тебе!", "Thanks for choosing GORILLA AI. We're glad to be here to help!", "感谢你选择 GORILLA AI。很高兴能陪伴并帮助你！", "Дякуємо, що обрав GORILLA AI. Раді бути поруч і допомагати тобі!"), 14f, 0xFFC5C0D6.toInt()).apply { setPadding(0, dp(8), 0, 0) })
         messages.addView(welcome)
-        messages.addView(text("Прикрепляй фото или файлы прямо в чате.", 12f, 0xFF9DA4B4.toInt()).apply {
-            gravity = Gravity.CENTER
-            setPadding(0, dp(14), 0, dp(8))
-        })
-    }
-
-    private fun suggestion(icon: String, label: String, action: () -> Unit): View {
-        return LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(14), dp(10), dp(10), dp(10))
-            background = rounded(tile, 18)
-            addView(text(icon, 24f, Color.WHITE))
-            addView(text(label, 15f, Color.WHITE).apply { setPadding(0, dp(8), 0, 0) })
-            setOnClickListener { action() }
-        }
-    }
-
-    private fun setPrompt(value: String) {
-        input.setText(value)
-        input.setSelection(input.text.length)
-        input.requestFocus()
     }
 
     private fun historyKey(): String = "chats_${authSession?.userId ?: "local"}"
@@ -377,6 +337,7 @@ class MainActivity : Activity() {
     private fun sendMessage() {
         val value = input.text.toString().trim()
         if (value.isEmpty()) return
+        if (welcomeVisible) { messages.removeAllViews(); welcomeVisible = false }
         addBubble(value, true)
         saveChatMessage(value, true)
         input.setText("")
@@ -481,6 +442,7 @@ class MainActivity : Activity() {
     private fun startNewChat() {
         currentChatId = UUID.randomUUID().toString()
         messages.removeAllViews()
+        welcomeVisible = true
         showWelcome()
         input.setText("")
     }
@@ -488,6 +450,7 @@ class MainActivity : Activity() {
     private fun openSavedChat(chat: JSONObject) {
         currentChatId = chat.optString("id", UUID.randomUUID().toString())
         messages.removeAllViews()
+        welcomeVisible = false
         val items = chat.optJSONArray("messages") ?: JSONArray()
         for (i in 0 until items.length()) {
             val item = items.optJSONObject(i) ?: continue
