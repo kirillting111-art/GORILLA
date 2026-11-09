@@ -66,6 +66,7 @@ as $$
 declare
   actor_role text;
   new_code text;
+  random_bytes bytea;
 begin
   select p.role into actor_role
   from public.gorilla_profiles p
@@ -86,7 +87,14 @@ begin
   set used_at = now()
   where user_id = target_user and used_at is null;
 
-  new_code := lpad((mod(\n    get_byte(gen_random_bytes(4), 0)::bigint * 16777216 +\n    get_byte(gen_random_bytes(4), 1)::bigint * 65536 +\n    get_byte(gen_random_bytes(4), 2)::bigint * 256 +\n    get_byte(gen_random_bytes(4), 3)::bigint,\n    1000000\n  ))::text, 6, '0');
+  random_bytes := gen_random_bytes(4);
+  new_code := lpad((mod(
+    get_byte(random_bytes, 0)::bigint * 16777216 +
+    get_byte(random_bytes, 1)::bigint * 65536 +
+    get_byte(random_bytes, 2)::bigint * 256 +
+    get_byte(random_bytes, 3)::bigint,
+    1000000
+  ))::text, 6, '0');
 
   insert into public.gorilla_access_codes(user_id, code_hash, expires_at, created_by)
   values (
