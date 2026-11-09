@@ -86,7 +86,7 @@ begin
   set used_at = now()
   where user_id = target_user and used_at is null;
 
-  new_code := lpad((('x' || encode(gen_random_bytes(4), 'hex'))::bit(32)::bigint % 1000000)::text, 6, '0');
+  new_code := lpad((mod(\n    get_byte(gen_random_bytes(4), 0)::bigint * 16777216 +\n    get_byte(gen_random_bytes(4), 1)::bigint * 65536 +\n    get_byte(gen_random_bytes(4), 2)::bigint * 256 +\n    get_byte(gen_random_bytes(4), 3)::bigint,\n    1000000\n  ))::text, 6, '0');
 
   insert into public.gorilla_access_codes(user_id, code_hash, expires_at, created_by)
   values (
