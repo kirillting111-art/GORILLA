@@ -1,26 +1,28 @@
-# GORILLA AI backend setup (Supabase)
+# GORILLA AI — Supabase setup
 
-This repository now contains the first database migration for approval-gated accounts.
+The Android app is connected to Supabase Auth and the approval-gated account RPC functions.
 
-## What the migration provides
-- Each account gets a permanent numeric public ID (starting at 2471).
-- New accounts start with `access_status = pending` and cannot be treated as approved.
-- An owner/admin can list pending accounts and issue a unique six-digit code.
-- Codes are tied to one account, stored as SHA-256 hashes, expire after 15 minutes and can be redeemed once.
-- Redeeming the code approves that account permanently; later logins do not need another code.
-- Ordinary accounts cannot issue codes or list pending registrations.
+## Database migration
+1. Open the Supabase project used by GORILLA AI.
+2. Open **SQL Editor**.
+3. Run `supabase/migrations/001_approval_gated_accounts.sql` once.
+4. Register your own account from the GORILLA Android app.
+5. In **Authentication → Users**, copy your auth user UUID.
+6. In SQL Editor, replace the placeholder UUID in the owner bootstrap statement at the bottom of the migration and run that statement once.
 
-## Setup
-1. Create a Supabase project.
-2. Open **SQL Editor** in Supabase.
-3. Run the complete file `supabase/migrations/001_approval_gated_accounts.sql`.
-4. Create your own account through Supabase Auth.
-5. In **Authentication > Users**, copy your auth user UUID.
-6. Replace the placeholder in the final commented SQL statement with your UUID and run the owner-promotion update in SQL Editor. This is the one-time owner bootstrap.
-7. Keep the Supabase service-role key private. Never put it in Android code, GitHub, or the APK.
+## In-app registration and approval
+1. A person registers from the GORILLA app with name, email and password.
+2. Supabase Auth creates the auth user; the database trigger creates a profile with `pending` status.
+3. The owner signs into the app and opens **☰ → Панель владельца**.
+4. The owner selects the pending account. The app calls `gorilla_issue_access_code` and displays a one-time six-digit code.
+5. The owner sends that code privately to the applicant. The applicant enters it in the app; `gorilla_redeem_access_code` approves the account.
 
-## Important integration status
-The SQL backend schema is committed, but it is not live until you create a Supabase project and run the migration. The Android app is not yet wired to Supabase Auth/RPC. Do not distribute this prototype as a functioning gated service until that connection is implemented and tested.
+Codes expire after 15 minutes, are tied to one user, and can only be redeemed once. Ordinary users cannot list pending accounts or issue codes; the database RPC functions check the caller's role.
 
-## Next integration values
-The Android client will need the Supabase project URL and the public anon/publishable key. These are designed for client use when Row Level Security is correctly configured. Do not send or commit the service-role key.
+## Client credentials and security
+The Android client contains only the project URL and a publishable/anon client key. Those values are intended for client use when Row Level Security is correctly configured. **Never put the service-role key in Android, GitHub, or an APK.**
+
+If the Supabase project is changed, update `PROJECT_URL` and `PUBLISHABLE_KEY` in `SupabaseApi.kt` with the new project's URL and publishable key. Do not paste a service-role or secret key there.
+
+## Verification
+After running the migration, register a test account in the app, confirm email if Supabase email confirmation is enabled, then sign in. It should show the pending-code prompt. Sign in as the owner on a separate device/session to issue the code.
