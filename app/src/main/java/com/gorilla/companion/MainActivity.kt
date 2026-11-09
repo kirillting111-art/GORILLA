@@ -68,74 +68,139 @@ class MainActivity : Activity() {
     }
 
     private fun showAuthScreen() {
-        val root = LinearLayout(this).apply {
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        val page = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(24), dp(24), dp(24), dp(24))
-            setBackgroundColor(if (lightTheme) Color.rgb(246,247,251) else bg)
+            setBackgroundColor(if (lightTheme) Color.rgb(246, 247, 251) else bg)
         }
-        root.addView(text("GORILLA", 25f, accent, true).apply { gravity = Gravity.CENTER })
-        root.addView(text("✳", 58f, accent, true).apply { gravity = Gravity.CENTER })
-        root.addView(text("GORILLA AI", 30f, Color.WHITE, true).apply {
+        val scroller = ScrollView(this).apply {
+            isFillViewport = true
+            clipToPadding = false
+            setPadding(dp(22), dp(22), dp(22), dp(28))
+        }
+        val content = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+        }
+        scroller.addView(content)
+
+        content.addView(text("GORILLA AI", 29f, accent, true).apply {
             gravity = Gravity.CENTER
-            setPadding(0, dp(8), 0, dp(4))
+            letterSpacing = 0.08f
         })
-        root.addView(text("Закрытый доступ к твоему ИИ", 14f, 0xFFC5C0D6.toInt()).apply {
+        content.addView(text(tr("ТВОЙ ИИ. ТВОИ ПРАВИЛА.", "YOUR AI. YOUR RULES.", "你的 AI，你的规则。", "ТВІЙ ШІ. ТВОЇ ПРАВИЛА."), 11f, 0xFF9FA8C2.toInt(), true).apply {
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(24))
+            letterSpacing = 0.12f
+            setPadding(0, dp(5), 0, dp(20))
         })
-        root.addView(text("🌐  " + when (uiLanguage) { "en" -> "English"; "zh" -> "中文"; "uk" -> "Українська"; else -> "Русский" }, 14f, accent).apply {
+
+        val languageChip = TextView(this).apply {
+            text = "◎   " + when (uiLanguage) { "en" -> "English"; "zh" -> "中文"; "uk" -> "Українська"; else -> "Русский" } + "   ▾"
+            textSize = 14f
+            setTextColor(accent)
             gravity = Gravity.CENTER
-            setPadding(0, 0, 0, dp(12))
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            background = rounded(if (lightTheme) 0xFFE9E5F8.toInt() else 0xFF25243A.toInt(), 22)
             setOnClickListener { chooseLanguage() }
-        })
+        }
+        content.addView(languageChip, LinearLayout.LayoutParams(-2, -2).apply { bottomMargin = dp(20) })
+
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = rounded(if (lightTheme) Color.WHITE else panel, 26)
+            setPadding(dp(20), dp(22), dp(20), dp(22))
+            elevation = dp(3).toFloat()
+        }
+        content.addView(card, LinearLayout.LayoutParams(-1, -2))
+
+        val avatarFrame = LinearLayout(this).apply {
+            gravity = Gravity.CENTER
+            background = rounded(if (lightTheme) 0xFFF0ECFF.toInt() else 0xFF39314F.toInt(), 30)
+            setOnClickListener { pickAvatar() }
+        }
         val avatarPreview = ImageView(this).apply {
             setImageResource(android.R.drawable.sym_def_app_icon)
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = rounded(tile, 48)
+            setPadding(dp(12), dp(12), dp(12), dp(12))
             setOnClickListener { pickAvatar() }
         }
-        root.addView(avatarPreview, LinearLayout.LayoutParams(dp(76), dp(76)).apply { bottomMargin = dp(8) })
-        root.addView(text("Добавить аватар (необязательно)", 12f, 0xFFB7B4C8.toInt()).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(10)) })
-        val name = EditText(this).apply {
-            hint = tr("Твоё имя (необязательно)", "Your name (optional)", "你的名字（可选）", "Твоє ім’я (необов’язково)")
-            setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
-            setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
+        avatarFrame.addView(avatarPreview, LinearLayout.LayoutParams(dp(76), dp(76)))
+        card.addView(avatarFrame, LinearLayout.LayoutParams(dp(88), dp(88)).apply {
+            gravity = Gravity.CENTER
+            bottomMargin = dp(8)
+        })
+        card.addView(text(tr("Добавить фото профиля · по желанию", "Add a profile photo · optional", "添加头像 · 可选", "Додати фото профілю · за бажанням"), 12f, 0xFFAAAFC1.toInt()).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(20))
+            setOnClickListener { pickAvatar() }
+        })
+
+        card.addView(text(tr("Добро пожаловать", "Welcome", "欢迎", "Ласкаво просимо"), 25f, if (lightTheme) 0xFF202333.toInt() else Color.WHITE, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(5))
+        })
+        card.addView(text(tr("Создай аккаунт или войди, чтобы продолжить", "Create an account or sign in to continue", "创建账户或登录以继续", "Створи акаунт або увійди, щоб продовжити"), 13f, 0xFF9FA8BC.toInt()).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(20))
+        })
+
+        fun field(hintText: String, type: Int = android.text.InputType.TYPE_CLASS_TEXT): EditText {
+            return EditText(this).apply {
+                hint = hintText
+                setTextColor(if (lightTheme) 0xFF202333.toInt() else Color.WHITE)
+                setHintTextColor(0xFF929AAF.toInt())
+                inputType = type
+                setSingleLine(true)
+                textSize = 15f
+                background = rounded(if (lightTheme) 0xFFF1F2F7.toInt() else 0xFF171D2B.toInt(), 15)
+                setPadding(dp(16), dp(13), dp(16), dp(13))
+            }
         }
-        val email = EditText(this).apply {
-            hint = tr("Электронная почта", "Email address", "电子邮箱", "Електронна пошта"); setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
-            setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
+        val name = field(tr("Имя · необязательно", "Name · optional", "姓名 · 可选", "Ім’я · необов’язково"))
+        val email = field(tr("Электронная почта", "Email address", "电子邮箱", "Електронна пошта"), android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS)
+        val password = field(tr("Пароль · минимум 8 символов", "Password · at least 8 characters", "密码 · 至少 8 个字符", "Пароль · мінімум 8 символів"), android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD)
+        listOf(name, email, password).forEachIndexed { index, edit ->
+            card.addView(edit, LinearLayout.LayoutParams(-1, dp(54)).apply {
+                bottomMargin = if (index == 2) dp(18) else dp(10)
+            })
         }
-        val password = EditText(this).apply {
-            hint = tr("Пароль", "Password", "密码", "Пароль"); setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
-            setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
+
+        fun actionButton(label: String, primary: Boolean, action: () -> Unit): TextView {
+            return TextView(this).apply {
+                text = label
+                textSize = 15f
+                typeface = Typeface.DEFAULT_BOLD
+                gravity = Gravity.CENTER
+                setTextColor(if (primary) Color.rgb(22, 20, 34) else if (lightTheme) 0xFF37334A.toInt() else accent)
+                background = rounded(if (primary) accent else if (lightTheme) 0xFFF0EDFA.toInt() else 0xFF29283D.toInt(), 16)
+                setPadding(dp(12), 0, dp(12), 0)
+                setOnClickListener { action() }
+            }
         }
-        root.addView(name, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(10) })
-        root.addView(email, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(10) })
-        root.addView(password, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(16) })
-        val register = Button(this).apply { text = tr("Запросить доступ", "Request access", "申请访问", "Запросити доступ"); setOnClickListener {
-            val n=name.text.toString().trim(); val e=email.text.toString().trim(); val p=password.text.toString()
-            if (e.isBlank() || p.length < 8) { toast("Введи почту и пароль от 8 символов"); return@setOnClickListener }
+        card.addView(actionButton(tr("Создать аккаунт", "Create account", "创建账户", "Створити акаунт"), true) {
+            val n = name.text.toString().trim()
+            val e = email.text.toString().trim()
+            val p = password.text.toString()
+            if (e.isBlank() || p.length < 8) { toast(tr("Введи почту и пароль от 8 символов", "Enter an email and a password of at least 8 characters", "请输入邮箱和至少 8 位密码", "Введи пошту й пароль від 8 символів")); return@actionButton }
             runAuth {
                 val created = SupabaseApi.signUp(e, p, n.ifBlank { e.substringBefore("@") })
-                if (created == null) {
-                    runOnUiThread { toast("Аккаунт создан. Подтверди почту из письма, затем войди.") }
-                } else acceptSession(created)
+                if (created == null) runOnUiThread { toast(tr("Аккаунт создан. Подтверди почту из письма, затем войди.", "Account created. Verify your email, then sign in.", "账户已创建。请先验证邮箱再登录。", "Акаунт створено. Підтверди пошту з листа, потім увійди.")) }
+                else acceptSession(created)
             }
-        } }
-        val login = Button(this).apply { text = tr("Войти", "Sign in", "登录", "Увійти"); setOnClickListener {
-            val e=email.text.toString().trim(); val p=password.text.toString()
-            if (e.isBlank() || p.isBlank()) { toast("Введи почту и пароль"); return@setOnClickListener }
-            runAuth { acceptSession(SupabaseApi.signIn(e,p)) }
-        } }
-        root.addView(register, LinearLayout.LayoutParams(-1, dp(52)).apply { bottomMargin = dp(8) })
-        root.addView(login, LinearLayout.LayoutParams(-1, dp(52)))
-        root.addView(text("После регистрации владелец должен подтвердить твой доступ.", 12f, 0xFF9DA4B4.toInt()).apply {
-            gravity = Gravity.CENTER; setPadding(0, dp(18), 0, 0)
+        }, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(10) })
+        card.addView(actionButton(tr("Уже есть аккаунт? Войти", "Already have an account? Sign in", "已有账户？登录", "Вже маєш акаунт? Увійти"), false) {
+            val e = email.text.toString().trim()
+            val p = password.text.toString()
+            if (e.isBlank() || p.isBlank()) { toast(tr("Введи почту и пароль", "Enter your email and password", "请输入邮箱和密码", "Введи пошту й пароль")); return@actionButton }
+            runAuth { acceptSession(SupabaseApi.signIn(e, p)) }
+        }, LinearLayout.LayoutParams(-1, dp(52)))
+
+        content.addView(text(tr("🔒  Твои личные чаты доступны только тебе. Доступ к GORILLA AI подтверждается владельцем.", "🔒  Your chats are private to you. GORILLA AI access is approved by the owner.", "🔒  你的聊天仅自己可见。GORILLA AI 访问权限由所有者批准。", "🔒  Твої чати бачиш лише ти. Доступ до GORILLA AI підтверджує власник."), 12f, 0xFF969DB1.toInt()).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(18), dp(10), dp(8))
         })
-        setContentView(root)
+        page.addView(scroller, LinearLayout.LayoutParams(-1, 0, 1f))
+        setContentView(page)
     }
 
     private fun runAuth(action: () -> Unit) {
