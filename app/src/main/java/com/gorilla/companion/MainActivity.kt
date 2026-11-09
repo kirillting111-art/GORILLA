@@ -28,14 +28,149 @@ class MainActivity : Activity() {
     private lateinit var messages: LinearLayout
     private lateinit var scroll: ScrollView
     private lateinit var input: EditText
+    private var authSession: SupabaseApi.Session? = null
+    private var accountProfile: SupabaseApi.Profile? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = bg
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
-        buildScreen()
+        val prefs = getSharedPreferences("gorilla_auth", MODE_PRIVATE)
+        val token = prefs.getString("access_token", null)
+        val userId = prefs.getString("user_id", null)
+        if (token != null && userId != null) {
+            authSession = SupabaseApi.Session(token, prefs.getString("refresh_token", "") ?: "", userId)
+            Thread {
+                try {
+                    val profile = SupabaseApi.profile(token, userId)
+                    runOnUiThread {
+                        accountProfile = profile
+                        if (profile.status == "approved") buildScreen() else showAuthScreen()
+                    }
+                } catch (_: Exception) {
+                    runOnUiThread { showAuthScreen() }
+                }
+            }.start()
+        } else showAuthScreen()
     }
+
+    private fun showAuthScreen() {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(24), dp(24), dp(24), dp(24))
+            setBackgroundColor(bg)
+        }
+        root.addView(text("✳", 58f, accent, true).apply { gravity = Gravity.CENTER })
+        root.addView(text("GORILLA AI", 30f, Color.WHITE, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, dp(4))
+        })
+        root.addView(text("Закрытый доступ к твоему ИИ", 14f, 0xFFC5C0D6.toInt()).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(24))
+        })
+        val name = EditText(this).apply {
+            hint = "Твоё имя (для регистрации)"
+            setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
+            setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
+        }
+        val email = EditText(this).apply {
+            hint = "Электронная почта"; setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS
+            setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
+        }
+        val password = EditText(this).apply {
+            hint = "Пароль"; setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
+            inputType = android.text.InputType.TYPE_CLASS_TEXT or android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD
+            setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
+        }
+        root.addView(name, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(10) })
+        root.addView(email, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(10) })
+        root.addView(password, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(16) })
+        val register = Button(this).apply { text = "Запросить доступ"; setOnClickListener {
+            val n=name.text.toString().trim(); val e=email.text.toString().trim(); val p=password.text.toString()
+            if (n.isBlank() || e.isBlank() || p.length < 8) { toast("Заполни имя, почту и пароль от 8 символов"); return@setOnClickListener }
+            runAuth {
+                val created = SupabaseApi.signUp(e, p, n)
+                if (created == null) {
+                    runOnUiThread { toast("Аккаунт создан. Подтверди почту из письма, затем войди.") }
+                } else acceptSession(created)
+            }
+        } }
+        val login = Button(this).apply { text = "Войти"; setOnClickListener {
+            val e=email.text.toString().trim(); val p=password.text.toString()
+            if (e.isBlank() || p.isBlank()) { toast("Введи почту и пароль"); return@setOnClickListener }
+            runAuth { acceptSession(SupabaseApi.signIn(e,p)) }
+        } }
+        root.addView(register, LinearLayout.LayoutParams(-1, dp(52)).apply { bottomMargin = dp(8) })
+        root.addView(login, LinearLayout.LayoutParams(-1, dp(52)))
+        root.addView(text("После регистрации владелец должен подтвердить твой доступ.", 12f, 0xFF9DA4B4.toInt()).apply {
+            gravity = Gravity.CENTER; setPadding(0, dp(18), 0, 0)
+        })
+        setContentView(root)
+    }
+
+    private fun runAuth(action: () -> Unit) {
+        Toast.makeText(this, "Подключаемся к серверу…", Toast.LENGTH_SHORT).show()
+        Thread {
+            try { action() }
+            catch (e: Exception) { runOnUiThread { toast("Ошибка: ${e.message ?: "не удалось подключиться"}") } }
+        }.start()
+    }
+
+    private fun acceptSession(session: SupabaseApi.Session) {
+        val profile = SupabaseApi.profile(session.accessToken, session.userId)
+        getSharedPreferences("gorilla_auth", MODE_PRIVATE).edit()
+            .putString("access_token", session.accessToken)
+            .putString("refresh_token", session.refreshToken)
+            .putString("user_id", session.userId).apply()
+        authSession = session
+        accountProfile = profile
+        runOnUiThread {
+            when (profile.status) {
+                "approved" -> buildScreen()
+                "pending" -> showCodeDialog()
+                else -> toast("Доступ к аккаунту заблокирован. Свяжись с владельцем.")
+            }
+        }
+    }
+
+    private fun showCodeDialog() {
+        val field = EditText(this).apply {
+            hint = "6-значный код"; inputType = android.text.InputType.TYPE_CLASS_NUMBER
+            setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
+        }
+        AlertDialog.Builder(this).setTitle("Ожидание подтверждения")
+            .setMessage("Владелец GORILLA AI должен выдать тебе одноразовый код. Введи его здесь.")
+            .setView(field)
+            .setPositiveButton("Подтвердить", null)
+            .setNegativeButton("Позже") { _, _ -> showAuthScreen() }
+            .create().also { dialog ->
+                dialog.setOnShowListener {
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                        val code=field.text.toString().trim()
+                        val session=authSession
+                        if (code.length != 6 || session == null) { toast("Нужен код из 6 цифр"); return@setOnClickListener }
+                        Thread {
+                            try {
+                                val id=SupabaseApi.redeemCode(session.accessToken, code)
+                                runOnUiThread {
+                                    accountProfile=SupabaseApi.Profile(id, "approved", "user")
+                                    dialog.dismiss()
+                                    toast("Доступ открыт! Твой ID: $id")
+                                    buildScreen()
+                                }
+                            } catch (e: Exception) { runOnUiThread { toast("Код не подошёл или истёк: ${e.message}") } }
+                        }.start()
+                    }
+                }
+                dialog.show()
+            }
+    }
+
+    private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
     private fun buildScreen() {
         val root = LinearLayout(this).apply {
@@ -54,7 +189,7 @@ class MainActivity : Activity() {
         }, LinearLayout.LayoutParams(dp(44), dp(48)))
         val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         heading.addView(text("GORILLA AI", 19f, Color.WHITE, true))
-        heading.addView(text("Твой ИИ · Твои идеи · Твой мир", 11f, 0xFFB7B4C8.toInt()))
+        heading.addView(text("Твой ИИ · ID ${accountProfile?.publicId ?: "—"}", 11f, 0xFFB7B4C8.toInt()))
         top.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
         top.addView(text("⋮", 28f, Color.WHITE).apply {
             gravity = Gravity.CENTER
@@ -261,6 +396,39 @@ class MainActivity : Activity() {
                     3 -> showSettings()
                 }
             }.show()
+    }
+
+    private fun showAdminPanel() {
+        val session = authSession ?: return
+        Thread {
+            try {
+                val pending = SupabaseApi.pendingAccounts(session.accessToken)
+                runOnUiThread {
+                    if (pending.length() == 0) {
+                        AlertDialog.Builder(this).setTitle("Админ-панель").setMessage("Новых заявок пока нет.")
+                            .setPositiveButton("ОК", null).show()
+                    } else {
+                        val labels = Array(pending.length()) { i ->
+                            val row=pending.getJSONObject(i)
+                            "#${row.optLong("public_id")} · ${row.optString("display_name")}\n${row.optString("user_id")}"
+                        }
+                        AlertDialog.Builder(this).setTitle("Заявки на доступ").setItems(labels) { _, which ->
+                            val target=pending.getJSONObject(which).getString("user_id")
+                            Thread {
+                                try {
+                                    val code=SupabaseApi.issueCode(session.accessToken,target)
+                                    runOnUiThread {
+                                        AlertDialog.Builder(this).setTitle("Код доступа")
+                                            .setMessage("Передай человеку этот код: $code\n\nОн действует 15 минут и используется один раз.")
+                                            .setPositiveButton("Готово", null).show()
+                                    }
+                                } catch (e: Exception) { runOnUiThread { toast("Не удалось выдать код: ${e.message}") } }
+                            }.start()
+                        }.setNegativeButton("Закрыть", null).show()
+                    }
+                }
+            } catch (e: Exception) { runOnUiThread { toast("Ошибка админ-панели: ${e.message}") } }
+        }.start()
     }
 
     private fun showSettings() {
