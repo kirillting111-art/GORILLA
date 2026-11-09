@@ -286,6 +286,10 @@ class MainActivity : Activity() {
         grid.addView(row2)
         welcome.addView(grid)
         messages.addView(welcome)
+        messages.addView(text("Важно: текстовые запросы сохраняются в журнале GORILLA и доступны только создателю приложения. Администраторы и другие пользователи журнал не видят.", 11f, 0xFFB7B4C8.toInt()).apply {
+            gravity = Gravity.CENTER
+            setPadding(dp(4), dp(12), dp(4), dp(4))
+        })
         messages.addView(text("Прикрепляй фото или файлы прямо в чате.", 12f, 0xFF9DA4B4.toInt()).apply {
             gravity = Gravity.CENTER
             setPadding(0, dp(14), 0, dp(8))
@@ -314,6 +318,11 @@ class MainActivity : Activity() {
         val value = input.text.toString().trim()
         if (value.isEmpty()) return
         addBubble(value, true)
+        val session = authSession
+        if (session != null) Thread {
+            try { SupabaseApi.logPrompt(session.accessToken, value) }
+            catch (e: Exception) { runOnUiThread { toast("Не удалось сохранить запрос в журнал: ${e.message}") } }
+        }.start()
         input.setText("")
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(input.windowToken, 0)
@@ -391,6 +400,10 @@ class MainActivity : Activity() {
         if (accountProfile?.role == "owner" || accountProfile?.role == "admin") {
             actions.add("Панель владельца")
         }
+        if (accountProfile?.role == "owner") {
+            actions.add("История запросов")
+            actions.add("Управление администраторами")
+        }
         actions.add("Выйти")
 
         AlertDialog.Builder(this).setTitle("GORILLA AI")
@@ -406,6 +419,8 @@ class MainActivity : Activity() {
                     }
                     "Настройки" -> showSettings()
                     "Панель владельца" -> showAdminPanel()
+                    "История запросов" -> showOwnerPromptLogs()
+                    "Управление администраторами" -> showOwnerAccounts()
                     "Выйти" -> {
                         getSharedPreferences("gorilla_auth", MODE_PRIVATE).edit().clear().apply()
                         authSession = null
@@ -446,6 +461,77 @@ class MainActivity : Activity() {
                     }
                 }
             } catch (e: Exception) { runOnUiThread { toast("Ошибка админ-панели: ${e.message}") } }
+        }.start()
+    }
+
+    private fun showOwnerPromptLogs() {
+        if (accountProfile?.role != "owner") { toast("Доступ только создателю"); return }
+        val session = authSession ?: return
+        Thread {
+            try {
+                val logs = SupabaseApi.ownerPromptLogs(session.accessToken)
+                runOnUiThread {
+                    if (logs.length() == 0) {
+                        AlertDialog.Builder(this).setTitle("История запросов")
+                            .setMessage("Пока запросов нет.").setPositiveButton("ОК", null).show()
+                        return@runOnUiThread
+                    }
+                    val labels = Array(logs.length()) { i ->
+                        val row = logs.getJSONObject(i)
+                        "#${row.optLong("public_id")} · ${row.optString("display_name")}\n${row.optString("created_at").replace("T", " ").take(16)}"
+                    }
+                    AlertDialog.Builder(this).setTitle("Запросы пользователей")
+                        .setItems(labels) { _, which ->
+                            val row = logs.getJSONObject(which)
+                            AlertDialog.Builder(this)
+                                .setTitle("#${row.optLong("public_id")} · ${row.optString("display_name")}")
+                                .setMessage(row.optString("prompt"))
+                                .setPositiveButton("Закрыть", null).show()
+                        }.setNegativeButton("Закрыть", null).show()
+                }
+            } catch (e: Exception) { runOnUiThread { toast("Журнал доступен только после установки SQL-обновления: ${e.message}") } }
+        }.start()
+    }
+
+    private fun showOwnerAccounts() {
+        if (accountProfile?.role != "owner") { toast("Доступ только создателю"); return }
+        val session = authSession ?: return
+        Thread {
+            try {
+                val accounts = SupabaseApi.ownerAccounts(session.accessToken)
+                runOnUiThread {
+                    if (accounts.length() == 0) {
+                        AlertDialog.Builder(this).setTitle("Пользователи")
+                            .setMessage("Аккаунтов пока нет.").setPositiveButton("ОК", null).show()
+                        return@runOnUiThread
+                    }
+                    val labels = Array(accounts.length()) { i ->
+                        val row = accounts.getJSONObject(i)
+                        "#${row.optLong("public_id")} · ${row.optString("display_name")} — ${row.optString("role")}"
+                    }
+                    AlertDialog.Builder(this).setTitle("Роли пользователей")
+                        .setItems(labels) { _, which ->
+                            val row = accounts.getJSONObject(which)
+                            val target = row.optString("user_id")
+                            val currentRole = row.optString("role")
+                            if (currentRole == "owner") {
+                                toast("Роль создателя нельзя изменить здесь")
+                            } else {
+                                val options = arrayOf("Обычный пользователь", "Администратор")
+                                AlertDialog.Builder(this).setTitle("Назначить роль")
+                                    .setItems(options) { _, selected ->
+                                        val role = if (selected == 1) "admin" else "user"
+                                        Thread {
+                                            try {
+                                                SupabaseApi.ownerSetRole(session.accessToken, target, role)
+                                                runOnUiThread { toast("Роль обновлена: $role") }
+                                            } catch (e: Exception) { runOnUiThread { toast("Не удалось изменить роль: ${e.message}") } }
+                                        }.start()
+                                    }.setNegativeButton("Отмена", null).show()
+                            }
+                        }.setNegativeButton("Закрыть", null).show()
+                }
+            } catch (e: Exception) { runOnUiThread { toast("Управление ролями доступно после установки SQL-обновления: ${e.message}") } }
         }.start()
     }
 
