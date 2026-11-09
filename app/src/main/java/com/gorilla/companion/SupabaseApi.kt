@@ -85,4 +85,20 @@ object SupabaseApi {
     fun issueCode(token: String, userId: String): String =
         request("/rest/v1/rpc/gorilla_issue_access_code", "POST", token,
             JSONObject().put("target_user", userId)).trim().trim('"')
+
+    fun logPrompt(token: String, prompt: String) {
+        request("/rest/v1/rpc/gorilla_log_prompt", "POST", token,
+            JSONObject().put("prompt", prompt))
+    }
+
+    fun ownerPromptLogs(token: String): JSONArray =
+        JSONArray(request("/rest/v1/rpc/gorilla_owner_prompt_logs", "POST", token, JSONObject()))
+
+    fun ownerAccounts(token: String): JSONArray =
+        JSONArray(request("/rest/v1/rpc/gorilla_owner_accounts", "POST", token, JSONObject()))
+
+    fun ownerSetRole(token: String, userId: String, role: String) {
+        request("/rest/v1/rpc/gorilla_owner_set_role", "POST", token,
+            JSONObject().put("target_user", userId).put("new_role", role))
+    }
 }
