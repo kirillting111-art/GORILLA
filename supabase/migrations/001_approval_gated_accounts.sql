@@ -35,12 +35,6 @@ drop policy if exists "Users read own profile" on public.gorilla_profiles;
 create policy "Users read own profile" on public.gorilla_profiles
 for select to authenticated using (auth.uid() = user_id);
 
-drop policy if exists "Admins read all profiles" on public.gorilla_profiles;
-create policy "Admins read all profiles" on public.gorilla_profiles
-for select to authenticated using (
-  exists (select 1 from public.gorilla_profiles me where me.user_id = auth.uid() and me.role in ('admin','owner'))
-);
-
 -- Profiles are created automatically for every newly authenticated signup.
 create or replace function public.gorilla_create_profile()
 returns trigger language plpgsql security definer set search_path = public
@@ -68,7 +62,7 @@ declare
   new_code text;
 begin
   select role into actor_role from public.gorilla_profiles where user_id = auth.uid();
-  if actor_role not in ('admin','owner') then
+  if coalesce(actor_role, '') not in ('admin','owner') then
     raise exception 'not_authorized';
   end if;
 
@@ -99,6 +93,63 @@ begin
   select access_status, public_id into current_status, assigned_id
   from public.gorilla_profiles where user_id = auth.uid() for update;
 
+  if code !~ '^[0-9]{6}
+    return assigned_id;
+  end if;
+  if current_status <> 'pending' then
+    raise exception 'account_not_pending';
+  end if;
+
+  select id into matched_id
+  from public.gorilla_access_codes
+  where user_id = auth.uid()
+    and code_hash = encode(digest(code, 'sha256'), 'hex')
+    and used_at is null
+    and expires_at > now()
+  order by created_at desc
+  limit 1
+  for update;
+
+  if matched_id is null then
+    raise exception 'invalid_or_expired_code';
+  end if;
+
+  update public.gorilla_access_codes set used_at = now() where id = matched_id;
+  update public.gorilla_profiles set access_status = 'approved', approved_at = now()
+    where user_id = auth.uid();
+  return assigned_id;
+end;
+$$;
+
+-- Owners/admins can review pending registrations; ordinary users cannot.
+create or replace function public.gorilla_pending_accounts()
+returns table(user_id uuid, public_id bigint, display_name text, created_at timestamptz)
+language plpgsql security definer set search_path = public
+as $$
+begin
+  if not exists (select 1 from public.gorilla_profiles where gorilla_profiles.user_id = auth.uid() and role in ('admin','owner')) then
+    raise exception 'not_authorized';
+  end if;
+  return query
+    select p.user_id, p.public_id, p.display_name, p.created_at
+    from public.gorilla_profiles p
+    where p.access_status = 'pending'
+    order by p.created_at asc;
+end;
+$$;
+
+revoke all on function public.gorilla_issue_access_code(uuid) from public;
+revoke all on function public.gorilla_redeem_access_code(text) from public;
+revoke all on function public.gorilla_pending_accounts() from public;
+grant execute on function public.gorilla_issue_access_code(uuid) to authenticated;
+grant execute on function public.gorilla_redeem_access_code(text) to authenticated;
+grant execute on function public.gorilla_pending_accounts() to authenticated;
+
+-- IMPORTANT: After creating your account, promote your own UUID to owner manually
+-- in Supabase SQL Editor. Replace YOUR_AUTH_USER_UUID below:
+-- update public.gorilla_profiles set role='owner', access_status='approved', approved_at=now()
+-- where user_id='YOUR_AUTH_USER_UUID';
+ then raise exception 'invalid_or_expired_code'; end if;
   if current_status = 'approved' then
     return assigned_id;
   end if;
