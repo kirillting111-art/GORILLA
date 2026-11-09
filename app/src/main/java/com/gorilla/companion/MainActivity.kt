@@ -348,7 +348,7 @@ class MainActivity : Activity() {
         input.setText("")
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(input.windowToken, 0)
-        val reply = "Интерфейс чата готов. Подключение языковой модели и серверной обработки добавим следующим этапом."
+        val reply = tr("Интерфейс чата готов. Подключение языковой модели и серверной обработки добавим следующим этапом.", "The chat interface is ready. Connecting the AI model and server processing is the next step.", "聊天界面已准备就绪。下一步将接入语言模型和服务器处理。", "Інтерфейс чату готовий. Підключення мовної моделі та серверної обробки додамо наступним етапом.")
         addBubble(reply, false)
         saveChatMessage(reply, false)
     }
