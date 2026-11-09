@@ -13,6 +13,9 @@ GORILLA AI is an Android companion app with Supabase-backed account registration
 ## Owner account
 The owner role is assigned once in Supabase SQL Editor after the first account is registered. The app displays the owner panel only to accounts whose profile role is `owner` or `admin`; server-side RPC functions also enforce this permission.
 
+## Owner-only prompt audit and admin roles
+Run `supabase/owner_audit_and_roles.sql` once in Supabase SQL Editor after the account tables have been created. The app then records text prompts and exposes **История запросов** and **Управление администраторами** only to the `owner` account. Server-side RPC functions independently enforce owner-only access; admins cannot read prompt logs or grant roles. The chat screen tells users that text prompts are visible to the creator. Attachments are not copied into this prompt log.
+
 ## Security
 - Android uses only the Supabase project URL and publishable client key.
 - Never place a Supabase service-role key in the app, repository, or APK.
