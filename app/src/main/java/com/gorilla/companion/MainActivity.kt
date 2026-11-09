@@ -30,6 +30,7 @@ class MainActivity : Activity() {
     private lateinit var input: EditText
     private var authSession: SupabaseApi.Session? = null
     private var accountProfile: SupabaseApi.Profile? = null
+    private var selectedAvatarUri: Uri? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -71,8 +72,16 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(24))
         })
+        val avatarPreview = ImageView(this).apply {
+            setImageResource(android.R.drawable.sym_def_app_icon)
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            background = rounded(tile, 48)
+            setOnClickListener { pickAvatar() }
+        }
+        root.addView(avatarPreview, LinearLayout.LayoutParams(dp(76), dp(76)).apply { bottomMargin = dp(8) })
+        root.addView(text("Добавить аватар (необязательно)", 12f, 0xFFB7B4C8.toInt()).apply { gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(10)) })
         val name = EditText(this).apply {
-            hint = "Твоё имя (для регистрации)"
+            hint = "Твоё имя (необязательно)"
             setTextColor(Color.WHITE); setHintTextColor(0xFF9DA4B4.toInt())
             setSingleLine(); background = rounded(panel, 14); setPadding(dp(14), dp(12), dp(14), dp(12))
         }
@@ -91,9 +100,9 @@ class MainActivity : Activity() {
         root.addView(password, LinearLayout.LayoutParams(-1, dp(54)).apply { bottomMargin = dp(16) })
         val register = Button(this).apply { text = "Запросить доступ"; setOnClickListener {
             val n=name.text.toString().trim(); val e=email.text.toString().trim(); val p=password.text.toString()
-            if (n.isBlank() || e.isBlank() || p.length < 8) { toast("Заполни имя, почту и пароль от 8 символов"); return@setOnClickListener }
+            if (e.isBlank() || p.length < 8) { toast("Введи почту и пароль от 8 символов"); return@setOnClickListener }
             runAuth {
-                val created = SupabaseApi.signUp(e, p, n)
+                val created = SupabaseApi.signUp(e, p, n.ifBlank { e.substringBefore("@") })
                 if (created == null) {
                     runOnUiThread { toast("Аккаунт создан. Подтверди почту из письма, затем войди.") }
                 } else acceptSession(created)
@@ -271,7 +280,14 @@ class MainActivity : Activity() {
             background = rounded(panel, 24)
             setPadding(dp(16), dp(18), dp(16), dp(16))
         }
-        welcome.addView(text("Привет! Чем займёмся сегодня?", 21f, Color.WHITE, true))
+        val greetingName = accountProfile?.displayName?.takeIf { it.isNotBlank() } ?: "друг"
+        welcome.addView(text("Приветствуем, $greetingName!", 21f, Color.WHITE, true))
+        welcome.addView(text("Спасибо, что выбрал GORILLA AI. Рады быть рядом и помогать тебе!", 14f, 0xFFC5C0D6.toInt()).apply { setPadding(0, dp(8), 0, dp(14)) })
+        val avatarUri = getSharedPreferences("gorilla_profile", MODE_PRIVATE).getString("avatar_uri", null)
+        if (avatarUri != null) try {
+            val avatar = ImageView(this).apply { setImageURI(Uri.parse(avatarUri)); adjustViewBounds = true; maxHeight = dp(72) }
+            welcome.addView(avatar, LinearLayout.LayoutParams(dp(64), dp(64)))
+        } catch (_: Exception) { }
         val grid = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         val row1 = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         row1.addView(suggestion("⌂", "Помощь с ДЗ") { setPrompt("Помоги решить домашнее задание: ") }, LinearLayout.LayoutParams(0, dp(104), 1f))
@@ -286,10 +302,6 @@ class MainActivity : Activity() {
         grid.addView(row2)
         welcome.addView(grid)
         messages.addView(welcome)
-        messages.addView(text("Важно: текстовые запросы сохраняются в журнале GORILLA и доступны только создателю приложения. Администраторы и другие пользователи журнал не видят.", 11f, 0xFFB7B4C8.toInt()).apply {
-            gravity = Gravity.CENTER
-            setPadding(dp(4), dp(12), dp(4), dp(4))
-        })
         messages.addView(text("Прикрепляй фото или файлы прямо в чате.", 12f, 0xFF9DA4B4.toInt()).apply {
             gravity = Gravity.CENTER
             setPadding(0, dp(14), 0, dp(8))
@@ -318,11 +330,6 @@ class MainActivity : Activity() {
         val value = input.text.toString().trim()
         if (value.isEmpty()) return
         addBubble(value, true)
-        val session = authSession
-        if (session != null) Thread {
-            try { SupabaseApi.logPrompt(session.accessToken, value) }
-            catch (e: Exception) { runOnUiThread { toast("Не удалось сохранить запрос в журнал: ${e.message}") } }
-        }.start()
         input.setText("")
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(input.windowToken, 0)
@@ -362,6 +369,11 @@ class MainActivity : Activity() {
         }.show()
     }
 
+    private fun pickAvatar() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply { type = "image/*"; addCategory(Intent.CATEGORY_OPENABLE); addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION) }
+        startActivityForResult(intent, 104)
+    }
+
     private fun pickImage() {
         val intent = Intent(Intent.ACTION_GET_CONTENT).apply { type = "image/*"; addCategory(Intent.CATEGORY_OPENABLE) }
         startActivityForResult(Intent.createChooser(intent, "Выбрать фото"), 101)
@@ -378,6 +390,13 @@ class MainActivity : Activity() {
         if (resultCode != RESULT_OK) return
         val uri: Uri? = data?.data
         if (uri != null) {
+            if (requestCode == 104) {
+                try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) { }
+                getSharedPreferences("gorilla_profile", MODE_PRIVATE).edit().putString("avatar_uri", uri.toString()).apply()
+                toast("Аватар сохранён на этом устройстве")
+                if (authSession != null) buildScreen() else showAuthScreen()
+                return
+            }
             val label = if (requestCode == 101) "Прикреплено изображение" else "Прикреплён файл"
             addBubble("$label: ${uri.lastPathSegment ?: "вложение"}", true)
             if (requestCode == 101) {
@@ -400,10 +419,6 @@ class MainActivity : Activity() {
         if (accountProfile?.role == "owner" || accountProfile?.role == "admin") {
             actions.add("Панель владельца")
         }
-        if (accountProfile?.role == "owner") {
-            actions.add("История запросов")
-            actions.add("Управление администраторами")
-        }
         actions.add("Выйти")
 
         AlertDialog.Builder(this).setTitle("GORILLA AI")
@@ -419,8 +434,6 @@ class MainActivity : Activity() {
                     }
                     "Настройки" -> showSettings()
                     "Панель владельца" -> showAdminPanel()
-                    "История запросов" -> showOwnerPromptLogs()
-                    "Управление администраторами" -> showOwnerAccounts()
                     "Выйти" -> {
                         getSharedPreferences("gorilla_auth", MODE_PRIVATE).edit().clear().apply()
                         authSession = null
@@ -461,77 +474,6 @@ class MainActivity : Activity() {
                     }
                 }
             } catch (e: Exception) { runOnUiThread { toast("Ошибка админ-панели: ${e.message}") } }
-        }.start()
-    }
-
-    private fun showOwnerPromptLogs() {
-        if (accountProfile?.role != "owner") { toast("Доступ только создателю"); return }
-        val session = authSession ?: return
-        Thread {
-            try {
-                val logs = SupabaseApi.ownerPromptLogs(session.accessToken)
-                runOnUiThread {
-                    if (logs.length() == 0) {
-                        AlertDialog.Builder(this).setTitle("История запросов")
-                            .setMessage("Пока запросов нет.").setPositiveButton("ОК", null).show()
-                        return@runOnUiThread
-                    }
-                    val labels = Array(logs.length()) { i ->
-                        val row = logs.getJSONObject(i)
-                        "#${row.optLong("public_id")} · ${row.optString("display_name")}\n${row.optString("created_at").replace("T", " ").take(16)}"
-                    }
-                    AlertDialog.Builder(this).setTitle("Запросы пользователей")
-                        .setItems(labels) { _, which ->
-                            val row = logs.getJSONObject(which)
-                            AlertDialog.Builder(this)
-                                .setTitle("#${row.optLong("public_id")} · ${row.optString("display_name")}")
-                                .setMessage(row.optString("prompt"))
-                                .setPositiveButton("Закрыть", null).show()
-                        }.setNegativeButton("Закрыть", null).show()
-                }
-            } catch (e: Exception) { runOnUiThread { toast("Журнал доступен только после установки SQL-обновления: ${e.message}") } }
-        }.start()
-    }
-
-    private fun showOwnerAccounts() {
-        if (accountProfile?.role != "owner") { toast("Доступ только создателю"); return }
-        val session = authSession ?: return
-        Thread {
-            try {
-                val accounts = SupabaseApi.ownerAccounts(session.accessToken)
-                runOnUiThread {
-                    if (accounts.length() == 0) {
-                        AlertDialog.Builder(this).setTitle("Пользователи")
-                            .setMessage("Аккаунтов пока нет.").setPositiveButton("ОК", null).show()
-                        return@runOnUiThread
-                    }
-                    val labels = Array(accounts.length()) { i ->
-                        val row = accounts.getJSONObject(i)
-                        "#${row.optLong("public_id")} · ${row.optString("display_name")} — ${row.optString("role")}"
-                    }
-                    AlertDialog.Builder(this).setTitle("Роли пользователей")
-                        .setItems(labels) { _, which ->
-                            val row = accounts.getJSONObject(which)
-                            val target = row.optString("user_id")
-                            val currentRole = row.optString("role")
-                            if (currentRole == "owner") {
-                                toast("Роль создателя нельзя изменить здесь")
-                            } else {
-                                val options = arrayOf("Обычный пользователь", "Администратор")
-                                AlertDialog.Builder(this).setTitle("Назначить роль")
-                                    .setItems(options) { _, selected ->
-                                        val role = if (selected == 1) "admin" else "user"
-                                        Thread {
-                                            try {
-                                                SupabaseApi.ownerSetRole(session.accessToken, target, role)
-                                                runOnUiThread { toast("Роль обновлена: $role") }
-                                            } catch (e: Exception) { runOnUiThread { toast("Не удалось изменить роль: ${e.message}") } }
-                                        }.start()
-                                    }.setNegativeButton("Отмена", null).show()
-                            }
-                        }.setNegativeButton("Закрыть", null).show()
-                }
-            } catch (e: Exception) { runOnUiThread { toast("Управление ролями доступно после установки SQL-обновления: ${e.message}") } }
         }.start()
     }
 
