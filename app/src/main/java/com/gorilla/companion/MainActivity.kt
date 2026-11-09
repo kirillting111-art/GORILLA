@@ -84,6 +84,11 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setPadding(0, 0, 0, dp(24))
         })
+        root.addView(text("🌐  " + when (uiLanguage) { "en" -> "English"; "zh" -> "中文"; "uk" -> "Українська"; else -> "Русский" }, 14f, accent).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(12))
+            setOnClickListener { chooseLanguage() }
+        })
         val avatarPreview = ImageView(this).apply {
             setImageResource(android.R.drawable.sym_def_app_icon)
             scaleType = ImageView.ScaleType.CENTER_CROP
