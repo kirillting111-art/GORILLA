@@ -19,6 +19,9 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import org.json.JSONArray
+import org.json.JSONObject
+import java.util.UUID
 
 class MainActivity : Activity() {
     private val bg = Color.rgb(15, 19, 30)
@@ -31,6 +34,7 @@ class MainActivity : Activity() {
     private var authSession: SupabaseApi.Session? = null
     private var accountProfile: SupabaseApi.Profile? = null
     private var selectedAvatarUri: Uri? = null
+    private var currentChatId: String = UUID.randomUUID().toString()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -251,6 +255,7 @@ class MainActivity : Activity() {
         root.addView(composer, LinearLayout.LayoutParams(-1, -2))
 
         setContentView(root)
+        purgeExpiredChats()
         showWelcome()
     }
 
@@ -326,14 +331,59 @@ class MainActivity : Activity() {
         input.requestFocus()
     }
 
+    private fun historyKey(): String = "chats_${authSession?.userId ?: "local"}"
+    private val chatRetentionMs = 30L * 24 * 60 * 60 * 1000
+
+    private fun savedChats(): JSONArray {
+        val prefs = getSharedPreferences("gorilla_history", MODE_PRIVATE)
+        val key = historyKey()
+        val chats = try { JSONArray(prefs.getString(key, "[]") ?: "[]") } catch (_: Exception) { JSONArray() }
+        val cutoff = System.currentTimeMillis() - chatRetentionMs
+        val valid = JSONArray()
+        for (i in 0 until chats.length()) {
+            val item = chats.optJSONObject(i) ?: continue
+            if (item.optLong("updated", 0L) >= cutoff) valid.put(item)
+        }
+        if (valid.length() != chats.length()) prefs.edit().putString(key, valid.toString()).apply()
+        return valid
+    }
+
+    private fun saveChatMessage(value: String, mine: Boolean) {
+        val prefs = getSharedPreferences("gorilla_history", MODE_PRIVATE)
+        val chats = savedChats()
+        var chat: JSONObject? = null
+        for (i in 0 until chats.length()) {
+            val item = chats.optJSONObject(i) ?: continue
+            if (item.optString("id") == currentChatId) { chat = item; break }
+        }
+        if (chat == null) {
+            chat = JSONObject().put("id", currentChatId)
+                .put("title", value.take(36).ifBlank { "Новый чат" })
+                .put("messages", JSONArray())
+        }
+        chat.getJSONArray("messages").put(JSONObject().put("text", value).put("mine", mine))
+        chat.put("updated", System.currentTimeMillis())
+        var replaced = false
+        val updated = JSONArray()
+        for (i in 0 until chats.length()) {
+            val item = chats.optJSONObject(i) ?: continue
+            if (item.optString("id") == currentChatId) { updated.put(chat); replaced = true } else updated.put(item)
+        }
+        if (!replaced) updated.put(chat)
+        prefs.edit().putString(historyKey(), updated.toString()).apply()
+    }
+
     private fun sendMessage() {
         val value = input.text.toString().trim()
         if (value.isEmpty()) return
         addBubble(value, true)
+        saveChatMessage(value, true)
         input.setText("")
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(input.windowToken, 0)
-        addBubble("Интерфейс чата готов. Подключение языковой модели и серверной обработки добавим следующим этапом.", false)
+        val reply = "Интерфейс чата готов. Подключение языковой модели и серверной обработки добавим следующим этапом."
+        addBubble(reply, false)
+        saveChatMessage(reply, false)
     }
 
     private fun addBubble(value: String, mine: Boolean) {
@@ -414,34 +464,81 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun showNavigation() {
-        val actions = mutableListOf("Новый чат", "Мой профиль", "Настройки")
-        if (accountProfile?.role == "owner" || accountProfile?.role == "admin") {
-            actions.add("Панель владельца")
+    private fun purgeExpiredChats() {
+        savedChats()
+        val prefs = getSharedPreferences("gorilla_history", MODE_PRIVATE)
+        val lastNoticeKey = "retention_notice_${authSession?.userId ?: "local"}"
+        if (!prefs.getBoolean(lastNoticeKey, false)) {
+            prefs.edit().putBoolean(lastNoticeKey, true).apply()
+            AlertDialog.Builder(this)
+                .setTitle("Важно: срок хранения чатов")
+                .setMessage("Твои чаты хранятся только на этом устройстве в течение 30 дней с момента последнего сообщения. После этого они автоматически удаляются. История не доступна администраторам.")
+                .setPositiveButton("Понятно", null).show()
         }
-        actions.add("Выйти")
+    }
 
-        AlertDialog.Builder(this).setTitle("GORILLA AI")
-            .setItems(actions.toTypedArray()) { _, which ->
-                when (actions[which]) {
-                    "Новый чат" -> { messages.removeAllViews(); showWelcome() }
-                    "Мой профиль" -> {
-                        val profile = accountProfile
-                        AlertDialog.Builder(this)
-                            .setTitle("Мой профиль")
-                            .setMessage("ID: ${profile?.publicId ?: "—"}\nРоль: ${profile?.role ?: "user"}\nСтатус: ${profile?.status ?: "—"}")
-                            .setPositiveButton("ОК", null).show()
-                    }
-                    "Настройки" -> showSettings()
-                    "Панель владельца" -> showAdminPanel()
-                    "Выйти" -> {
-                        getSharedPreferences("gorilla_auth", MODE_PRIVATE).edit().clear().apply()
-                        authSession = null
-                        accountProfile = null
-                        showAuthScreen()
-                    }
-                }
-            }.show()
+    private fun startNewChat() {
+        currentChatId = UUID.randomUUID().toString()
+        messages.removeAllViews()
+        showWelcome()
+        input.setText("")
+    }
+
+    private fun openSavedChat(chat: JSONObject) {
+        currentChatId = chat.optString("id", UUID.randomUUID().toString())
+        messages.removeAllViews()
+        val items = chat.optJSONArray("messages") ?: JSONArray()
+        for (i in 0 until items.length()) {
+            val item = items.optJSONObject(i) ?: continue
+            addBubble(item.optString("text"), item.optBoolean("mine"))
+        }
+    }
+
+    private fun showNavigation() {
+        val dialog = Dialog(this)
+        val drawer = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(24), dp(16), dp(16))
+            setBackgroundColor(Color.rgb(248, 248, 250))
+        }
+        drawer.addView(text("GORILLA AI", 24f, Color.BLACK, true).apply { setPadding(0, 0, 0, dp(24)) })
+        fun item(label: String, action: () -> Unit) {
+            drawer.addView(TextView(this).apply {
+                text = label
+                textSize = 18f
+                setTextColor(Color.rgb(35, 35, 40))
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(8), 0, dp(8), 0)
+                setOnClickListener { dialog.dismiss(); action() }
+            }, LinearLayout.LayoutParams(-1, dp(52)))
+        }
+        item("✎   Новый чат") { startNewChat() }
+        item("▧   Изображения") { pickImage() }
+        drawer.addView(text("Недавние", 16f, 0xFF777777.toInt(), true).apply { setPadding(dp(8), dp(24), 0, dp(8)) })
+        val recent = (0 until savedChats().length()).mapNotNull { savedChats().optJSONObject(it) }
+            .sortedByDescending { it.optLong("updated") }
+        if (recent.isEmpty()) drawer.addView(text("Пока нет чатов", 14f, 0xFF999999.toInt()).apply { setPadding(dp(8), dp(12), 0, dp(12)) })
+        recent.take(30).forEach { chat -> item("  " + chat.optString("title", "Новый чат")) { openSavedChat(chat) } }
+        drawer.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
+        item("Мой профиль") {
+            val p = accountProfile
+            AlertDialog.Builder(this).setTitle("Мой профиль")
+                .setMessage("ID: ${p?.publicId ?: "—"}\nИмя: ${p?.displayName ?: "—"}")
+                .setPositiveButton("ОК", null).show()
+        }
+        item("Настройки") { showSettings() }
+        if (accountProfile?.role == "owner" || accountProfile?.role == "admin") item("Панель владельца") { showAdminPanel() }
+        item("Выйти") {
+            getSharedPreferences("gorilla_auth", MODE_PRIVATE).edit().clear().apply()
+            authSession = null
+            accountProfile = null
+            showAuthScreen()
+        }
+        dialog.setContentView(drawer)
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.82f).toInt(), -1)
+        dialog.window?.setGravity(Gravity.START)
     }
 
     private fun showAdminPanel() {
