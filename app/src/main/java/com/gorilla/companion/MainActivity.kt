@@ -25,10 +25,15 @@ import org.json.JSONObject
 import java.util.UUID
 
 class MainActivity : Activity() {
-    private val bg = Color.rgb(15, 19, 30)
-    private val panel = Color.rgb(31, 39, 58)
-    private val tile = Color.rgb(49, 60, 87)
-    private val accent = Color.rgb(199, 181, 255)
+    private val themeName: String get() = prefsUi.getString("theme", "Тёмная") ?: "Тёмная"
+    private val lightTheme: Boolean get() = themeName == "Светлая"
+    private val bg: Int get() = when (themeName) { "Светлая" -> Color.rgb(246,247,251); "Неоновая" -> Color.rgb(7,10,24); "Лавандовая" -> Color.rgb(28,22,43); else -> Color.rgb(15,19,30) }
+    private val panel: Int get() = when (themeName) { "Светлая" -> Color.WHITE; "Неоновая" -> Color.rgb(15,23,48); "Лавандовая" -> Color.rgb(48,38,68); else -> Color.rgb(31,39,58) }
+    private val tile: Int get() = when (themeName) { "Светлая" -> Color.rgb(235,237,246); "Неоновая" -> Color.rgb(23,37,72); "Лавандовая" -> Color.rgb(66,52,91); else -> Color.rgb(49,60,87) }
+    private val accent: Int get() = when (themeName) { "Светлая" -> Color.rgb(111,86,190); "Неоновая" -> Color.rgb(70,235,220); "Лавандовая" -> Color.rgb(211,184,255); else -> Color.rgb(199,181,255) }
+    private val primaryText: Int get() = if (lightTheme) Color.rgb(30,32,45) else Color.WHITE
+    private val secondaryText: Int get() = if (lightTheme) Color.rgb(93,98,116) else Color.rgb(190,190,208)
+    private val composerColor: Int get() = if (lightTheme) Color.rgb(232,234,243) else tile
     private lateinit var messages: LinearLayout
     private lateinit var scroll: ScrollView
     private lateinit var input: EditText
@@ -39,7 +44,6 @@ class MainActivity : Activity() {
     private var welcomeVisible = true
     private val prefsUi by lazy { getSharedPreferences("gorilla_ui", MODE_PRIVATE) }
     private val uiLanguage: String get() = prefsUi.getString("language", "ru") ?: "ru"
-    private val lightTheme: Boolean get() = prefsUi.getBoolean("light_theme", false)
     private fun tr(ru: String, en: String, zh: String, uk: String): String = when (uiLanguage) { "en" -> en; "zh" -> zh; "uk" -> uk; else -> ru }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -274,15 +278,15 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        top.addView(text("☰", 27f, Color.WHITE).apply {
+        top.addView(text("☰", 27f, primaryText).apply {
             gravity = Gravity.CENTER
             setOnClickListener { showNavigation() }
         }, LinearLayout.LayoutParams(dp(44), dp(48)))
         val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        heading.addView(text("GORILLA AI", 19f, Color.WHITE, true))
+        heading.addView(text("GORILLA AI", 19f, primaryText, true))
         heading.addView(text("Твой ИИ · ID ${accountProfile?.publicId ?: "—"}", 11f, 0xFFB7B4C8.toInt()))
         top.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
-        top.addView(text("⋮", 28f, Color.WHITE).apply {
+        top.addView(text("⋮", 28f, primaryText).apply {
             gravity = Gravity.CENTER
             setOnClickListener { showSettings() }
         }, LinearLayout.LayoutParams(dp(40), dp(48)))
@@ -304,7 +308,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), dp(8), dp(8), dp(8))
-            background = rounded(0xFF202737.toInt(), 28)
+            background = rounded(composerColor, 28)
         }
         val plus = text("+", 31f, Color.WHITE).apply {
             gravity = Gravity.CENTER
@@ -313,8 +317,10 @@ class MainActivity : Activity() {
         composer.addView(plus, LinearLayout.LayoutParams(dp(42), dp(48)))
         input = EditText(this).apply {
             hint = "Спросить GORILLA AI"
-            setHintTextColor(0xFF9DA4B4.toInt())
-            setTextColor(Color.WHITE)
+            setHintTextColor(if (lightTheme) 0xFF777D91.toInt() else 0xFFB8BED0.toInt())
+            setTextColor(primaryText)
+            setLinkTextColor(accent)
+            highlightColor = accent
             textSize = 16f
             maxLines = 4
             minLines = 1
@@ -630,18 +636,25 @@ class MainActivity : Activity() {
     }
 
     private fun showSettings() {
-        val items = arrayOf("Язык / Language / 语言 / Мова", "Тема оформления", "Шрифт", "Свой фон чата", "О приложении")
-        AlertDialog.Builder(this).setTitle("GORILLA AI").setItems(items) { _, which ->
-            when (which) {
-                0 -> chooseLanguage()
-                1 -> chooseTheme()
-                2 -> chooseFont()
-                3 -> chooseChatBackground()
-                else -> AlertDialog.Builder(this).setMessage("GORILLA AI · версия 1.3").setPositiveButton("OK", null).show()
-            }
-        }.show()
+        val dialog = Dialog(this)
+        val shell = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(dp(20), dp(18), dp(20), dp(18)); background = rounded(panel, 26) }
+        val header = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
+        header.addView(LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(text(tr("Настройки", "Settings", "设置", "Налаштування"), 23f, primaryText, true)); addView(text("GORILLA AI · " + tr("Персонализация", "Personalization", "个性化", "Персоналізація"), 12f, secondaryText)) }, LinearLayout.LayoutParams(0, -2, 1f))
+        header.addView(text("✕", 22f, secondaryText).apply { gravity = Gravity.CENTER; setOnClickListener { dialog.dismiss() } }, LinearLayout.LayoutParams(dp(38), dp(42)))
+        shell.addView(header); shell.addView(View(this), LinearLayout.LayoutParams(1, dp(14)))
+        fun settingRow(icon: String, title: String, subtitle: String, action: () -> Unit) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL; background = rounded(tile, 17); setPadding(dp(14), dp(12), dp(12), dp(12)); isClickable = true; isFocusable = true; setOnClickListener { dialog.dismiss(); action() } }
+            row.addView(text(icon, 22f, accent, true), LinearLayout.LayoutParams(dp(40), dp(42)))
+            row.addView(LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; addView(text(title, 15f, primaryText, true)); addView(text(subtitle, 11f, secondaryText)) }, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(text("›", 25f, secondaryText)); shell.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
+        }
+        settingRow("◎", tr("Язык приложения", "App language", "应用语言", "Мова застосунку"), tr("Русский · English · 中文 · Українська", "Choose interface language", "选择界面语言", "Оберіть мову інтерфейсу")) { chooseLanguage() }
+        settingRow("◐", tr("Внешний вид", "Appearance", "外观", "Зовнішній вигляд"), tr("Тёмная · Светлая · Неоновая · Лавандовая", "Choose a color theme", "选择颜色主题", "Оберіть кольорову тему")) { chooseTheme() }
+        settingRow("Aa", tr("Шрифт", "Font", "字体", "Шрифт"), tr("Стиль текста и читаемость", "Text style and readability", "文字样式与可读性", "Стиль тексту та читабельність")) { chooseFont() }
+        settingRow("▧", tr("Фон чата", "Chat background", "聊天背景", "Тло чату"), tr("Установить своё изображение", "Use your own image", "使用自己的图片", "Встановити власне зображення")) { chooseChatBackground() }
+        settingRow("ⓘ", tr("О приложении", "About", "关于应用", "Про застосунок"), "GORILLA AI · 1.3") { AlertDialog.Builder(this).setMessage("GORILLA AI · 1.3").setPositiveButton("OK", null).show() }
+        dialog.setContentView(shell); dialog.window?.setBackgroundDrawableResource(android.R.color.transparent); dialog.show(); dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.90f).toInt(), -2)
     }
-
     private fun chooseLanguage() {
         val labels = arrayOf("🇷🇺 Русский", "🇬🇧 English", "🇨🇳 中文", "🇺🇦 Українська")
         val codes = arrayOf("ru", "en", "zh", "uk")
@@ -680,7 +693,7 @@ class MainActivity : Activity() {
     private fun text(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
         text = value
         textSize = size
-        setTextColor(if (lightTheme && color == Color.WHITE) Color.rgb(28, 31, 42) else color)
+        setTextColor(if (color == Color.WHITE) primaryText else if (lightTheme && color == 0xFFC5C0D6.toInt()) secondaryText else color)
         typeface = when (prefsUi.getInt("font_style", 0)) {
             1 -> Typeface.SERIF
             2 -> Typeface.MONOSPACE
