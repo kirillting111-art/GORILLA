@@ -11,7 +11,7 @@ object SupabaseApi {
     const val PUBLISHABLE_KEY = "sb_publishable_SviPfqviy2WJ4yT4SUgN3w_kpqDsx7_"
 
     data class Session(val accessToken: String, val refreshToken: String, val userId: String)
-    data class Profile(val publicId: Long, val status: String, val role: String)
+    data class Profile(val publicId: Long, val status: String, val role: String, val displayName: String = "")
 
     private fun request(path: String, method: String, token: String? = null, body: JSONObject? = null): String {
         val connection = (URL(PROJECT_URL + path).openConnection() as HttpURLConnection).apply {
@@ -66,11 +66,11 @@ object SupabaseApi {
     }
 
     fun profile(token: String, userId: String): Profile {
-        val path = "/rest/v1/gorilla_profiles?select=public_id,access_status,role&user_id=eq.$userId&limit=1"
+        val path = "/rest/v1/gorilla_profiles?select=public_id,access_status,role,display_name&user_id=eq.$userId&limit=1"
         val array = JSONArray(request(path, "GET", token))
         if (array.length() == 0) throw IllegalStateException("Профиль ещё создаётся. Подожди немного и войди снова.")
         val row = array.getJSONObject(0)
-        return Profile(row.getLong("public_id"), row.getString("access_status"), row.getString("role"))
+        return Profile(row.getLong("public_id"), row.getString("access_status"), row.getString("role"), row.optString("display_name"))
     }
 
     fun redeemCode(token: String, code: String): Long {
@@ -86,19 +86,4 @@ object SupabaseApi {
         request("/rest/v1/rpc/gorilla_issue_access_code", "POST", token,
             JSONObject().put("target_user", userId)).trim().trim('"')
 
-    fun logPrompt(token: String, prompt: String) {
-        request("/rest/v1/rpc/gorilla_log_prompt", "POST", token,
-            JSONObject().put("prompt", prompt))
-    }
-
-    fun ownerPromptLogs(token: String): JSONArray =
-        JSONArray(request("/rest/v1/rpc/gorilla_owner_prompt_logs", "POST", token, JSONObject()))
-
-    fun ownerAccounts(token: String): JSONArray =
-        JSONArray(request("/rest/v1/rpc/gorilla_owner_accounts", "POST", token, JSONObject()))
-
-    fun ownerSetRole(token: String, userId: String, role: String) {
-        request("/rest/v1/rpc/gorilla_owner_set_role", "POST", token,
-            JSONObject().put("target_user", userId).put("new_role", role))
-    }
 }
