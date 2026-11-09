@@ -401,7 +401,7 @@ class MainActivity : Activity() {
                         val profile = accountProfile
                         AlertDialog.Builder(this)
                             .setTitle("Мой профиль")
-                            .setMessage("ID: ${profile?.publicId ?: "—"}\\nРоль: ${profile?.role ?: "user"}\\nСтатус: ${profile?.status ?: "—"}")
+                            .setMessage("ID: ${profile?.publicId ?: "—"}\nРоль: ${profile?.role ?: "user"}\nСтатус: ${profile?.status ?: "—"}")
                             .setPositiveButton("ОК", null).show()
                     }
                     "Настройки" -> showSettings()
