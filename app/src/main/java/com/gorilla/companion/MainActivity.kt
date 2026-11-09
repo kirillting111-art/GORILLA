@@ -367,18 +367,33 @@ class MainActivity : Activity() {
     }
 
     private fun showAttachments() {
-        val items = arrayOf("Фото из галереи", "Файл", "Камера")
-        AlertDialog.Builder(this).setTitle("Добавить вложение").setItems(items) { _, which ->
-            when (which) {
-                0 -> pickImage()
-                1 -> pickFile()
-                2 -> {
-                    val intent = Intent("android.media.action.IMAGE_CAPTURE")
-                    if (intent.resolveActivity(packageManager) != null) startActivityForResult(intent, 103)
-                    else Toast.makeText(this, "Камера недоступна", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }.show()
+        val dialog = Dialog(this)
+        val box = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(22), dp(18), dp(22), dp(18))
+            background = rounded(if (lightTheme) Color.WHITE else panel, 24)
+        }
+        box.addView(text(tr("Добавить вложение", "Add attachment", "添加附件", "Додати вкладення"), 20f, if (lightTheme) Color.BLACK else Color.WHITE, true))
+        fun choice(icon: String, title: String, action: () -> Unit) {
+            box.addView(LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(8), dp(12), dp(8), dp(12))
+                addView(text(icon, 24f, accent), LinearLayout.LayoutParams(dp(48), -2))
+                addView(text(title, 16f, if (lightTheme) Color.BLACK else Color.WHITE))
+                setOnClickListener { dialog.dismiss(); action() }
+            }, LinearLayout.LayoutParams(-1, dp(54)))
+        }
+        choice("▧", tr("Фото из галереи", "Photo library", "相册照片", "Фото з галереї")) { pickImage() }
+        choice("▤", tr("Файл", "File", "文件", "Файл")) { pickFile() }
+        choice("◎", tr("Камера", "Camera", "相机", "Камера")) {
+            val intent = Intent("android.media.action.IMAGE_CAPTURE")
+            if (intent.resolveActivity(packageManager) != null) startActivityForResult(intent, 103) else toast("Камера недоступна")
+        }
+        dialog.setContentView(box)
+        dialog.show()
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.window?.setLayout((resources.displayMetrics.widthPixels * .88f).toInt(), -2)
     }
 
     private fun pickAvatar() {
@@ -401,6 +416,12 @@ class MainActivity : Activity() {
         super.onActivityResult(requestCode, resultCode, data)
         if (resultCode != RESULT_OK) return
         val uri: Uri? = data?.data
+        if (requestCode == 105 && uri != null) {
+            try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) { }
+            prefsUi.edit().putString("chat_background_uri", uri.toString()).apply()
+            toast("Фон чата сохранён")
+            return
+        }
         if (uri != null) {
             if (requestCode == 104) {
                 try { contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) } catch (_: Exception) { }
@@ -539,21 +560,63 @@ class MainActivity : Activity() {
     }
 
     private fun showSettings() {
-        AlertDialog.Builder(this).setTitle("Настройки GORILLA AI")
-            .setItems(arrayOf("Внешний вид", "Аккаунт", "О приложении")) { _, which ->
-                val message = when (which) {
-                    0 -> "Тёмная тема включена"
-                    1 -> "Регистрация и вход работают через Supabase Auth. Новые аккаунты ожидают одобрения владельца."
-                    else -> "GORILLA AI — твой ИИ-помощник"
-                }
-                AlertDialog.Builder(this).setMessage(message).setPositiveButton("ОК", null).show()
-            }.show()
+        val items = arrayOf("Язык / Language / 语言 / Мова", "Тема оформления", "Шрифт", "Свой фон чата", "О приложении")
+        AlertDialog.Builder(this).setTitle("GORILLA AI").setItems(items) { _, which ->
+            when (which) {
+                0 -> chooseLanguage()
+                1 -> chooseTheme()
+                2 -> chooseFont()
+                3 -> chooseChatBackground()
+                else -> AlertDialog.Builder(this).setMessage("GORILLA AI · версия 1.3").setPositiveButton("OK", null).show()
+            }
+        }.show()
+    }
+
+    private fun chooseLanguage() {
+        val labels = arrayOf("🇷🇺 Русский", "🇬🇧 English", "🇨🇳 中文", "🇺🇦 Українська")
+        val codes = arrayOf("ru", "en", "zh", "uk")
+        AlertDialog.Builder(this).setTitle("Выбери язык / Choose language").setSingleChoiceItems(labels, codes.indexOf(uiLanguage)) { d, which ->
+            prefsUi.edit().putString("language", codes[which]).apply()
+            d.dismiss()
+            recreate()
+        }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun chooseTheme() {
+        val labels = arrayOf("Тёмная", "Светлая", "Неоновая", "Лавандовая")
+        AlertDialog.Builder(this).setTitle("Тема оформления").setItems(labels) { _, which ->
+            prefsUi.edit().putString("theme", labels[which]).putBoolean("light_theme", which == 1).apply()
+            recreate()
+        }.show()
+    }
+
+    private fun chooseFont() {
+        val labels = arrayOf("Стандартный", "С засечками", "Моноширинный", "Округлый")
+        AlertDialog.Builder(this).setTitle("Шрифт").setItems(labels) { _, which ->
+            prefsUi.edit().putInt("font_style", which).apply()
+            recreate()
+        }.show()
+    }
+
+    private fun chooseChatBackground() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            type = "image/*"
+            addCategory(Intent.CATEGORY_OPENABLE)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+        }
+        startActivityForResult(intent, 105)
     }
 
     private fun text(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(this).apply {
         text = value
         textSize = size
-        setTextColor(color)
+        setTextColor(if (lightTheme && color == Color.WHITE) Color.rgb(28, 31, 42) else color)
+        typeface = when (prefsUi.getInt("font_style", 0)) {
+            1 -> Typeface.SERIF
+            2 -> Typeface.MONOSPACE
+            3 -> Typeface.create("sans-serif-rounded", Typeface.NORMAL)
+            else -> Typeface.DEFAULT
+        }
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
