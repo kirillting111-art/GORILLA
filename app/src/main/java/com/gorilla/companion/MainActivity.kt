@@ -387,13 +387,31 @@ class MainActivity : Activity() {
     }
 
     private fun showNavigation() {
+        val actions = mutableListOf("Новый чат", "Мой профиль", "Настройки")
+        if (accountProfile?.role == "owner" || accountProfile?.role == "admin") {
+            actions.add("Панель владельца")
+        }
+        actions.add("Выйти")
+
         AlertDialog.Builder(this).setTitle("GORILLA AI")
-            .setItems(arrayOf("Новый чат", "История чатов", "Мой профиль", "Настройки")) { _, which ->
-                when (which) {
-                    0 -> { messages.removeAllViews(); showWelcome() }
-                    1 -> Toast.makeText(this, "История чатов появится после подключения аккаунтов", Toast.LENGTH_SHORT).show()
-                    2 -> Toast.makeText(this, "Профиль и личный ID добавим на следующем этапе", Toast.LENGTH_SHORT).show()
-                    3 -> showSettings()
+            .setItems(actions.toTypedArray()) { _, which ->
+                when (actions[which]) {
+                    "Новый чат" -> { messages.removeAllViews(); showWelcome() }
+                    "Мой профиль" -> {
+                        val profile = accountProfile
+                        AlertDialog.Builder(this)
+                            .setTitle("Мой профиль")
+                            .setMessage("ID: ${profile?.publicId ?: "—"}\\nРоль: ${profile?.role ?: "user"}\\nСтатус: ${profile?.status ?: "—"}")
+                            .setPositiveButton("ОК", null).show()
+                    }
+                    "Настройки" -> showSettings()
+                    "Панель владельца" -> showAdminPanel()
+                    "Выйти" -> {
+                        getSharedPreferences("gorilla_auth", MODE_PRIVATE).edit().clear().apply()
+                        authSession = null
+                        accountProfile = null
+                        showAuthScreen()
+                    }
                 }
             }.show()
     }
@@ -436,7 +454,7 @@ class MainActivity : Activity() {
             .setItems(arrayOf("Внешний вид", "Аккаунт", "О приложении")) { _, which ->
                 val message = when (which) {
                     0 -> "Тёмная тема включена"
-                    1 -> "Регистрация и авторизация будут подключены к серверу"
+                    1 -> "Регистрация и вход работают через Supabase Auth. Новые аккаунты ожидают одобрения владельца."
                     else -> "GORILLA AI — твой ИИ-помощник"
                 }
                 AlertDialog.Builder(this).setMessage(message).setPositiveButton("ОК", null).show()
