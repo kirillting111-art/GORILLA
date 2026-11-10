@@ -2,6 +2,8 @@ package com.gorilla.companion
 
 import android.Manifest
 import android.app.Activity
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.app.Dialog
 import android.content.Intent
@@ -281,7 +283,7 @@ class MainActivity : Activity() {
         window.decorView.systemUiVisibility = 0
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(if (lightTheme) Color.rgb(246,247,251) else bg)
+            background = if (lightTheme) rounded(Color.rgb(246,247,251), 0) else GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF0B0D18.toInt(), 0xFF111629.toInt(), 0xFF171329.toInt()))
             setPadding(dp(16), dp(10), dp(16), dp(10))
             clipChildren = false
             clipToPadding = false
@@ -290,12 +292,12 @@ class MainActivity : Activity() {
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFF171B2B.toInt(), 0xFF25203D.toInt())).apply {
-                cornerRadius = dp(19).toFloat()
-                setStroke(dp(1), 0x447F69C9)
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFF171A2B.toInt(), 0xFF30264D.toInt(), 0xFF211D38.toInt())).apply {
+                cornerRadius = dp(25).toFloat()
+                setStroke(dp(1), 0x667F69C9)
             }
-            setPadding(dp(5), dp(3), dp(5), dp(3))
-            elevation = dp(4).toFloat()
+            setPadding(dp(7), dp(5), dp(7), dp(5))
+            elevation = dp(7).toFloat()
         }
         top.addView(text("☰", 27f, primaryText).apply {
             gravity = Gravity.CENTER
@@ -328,9 +330,12 @@ class MainActivity : Activity() {
         val composer = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(10), dp(8), dp(8), dp(8))
-            background = rounded(composerColor, 28)
-            elevation = dp(8).toFloat()
+            setPadding(dp(12), dp(9), dp(9), dp(9))
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(if (lightTheme) 0xFFE8EAF4.toInt() else 0xFF293954.toInt(), if (lightTheme) 0xFFF0ECFA.toInt() else 0xFF303B59.toInt())).apply {
+                cornerRadius = dp(34).toFloat()
+                setStroke(dp(1), if (lightTheme) 0x33705AB4 else 0x447F8DCA)
+            }
+            elevation = dp(12).toFloat()
             clipToPadding = false
         }
         val plus = text("+", 31f, Color.WHITE).apply {
@@ -352,7 +357,7 @@ class MainActivity : Activity() {
             setHintTextColor(if (lightTheme) Color.rgb(92, 98, 116) else Color.rgb(190, 196, 214))
             setLinkTextColor(accent)
             highlightColor = accent
-            textSize = 17f
+            textSize = 16f
             maxLines = 4
             minLines = 1
             gravity = Gravity.CENTER_VERTICAL
@@ -413,9 +418,24 @@ class MainActivity : Activity() {
             elevation = dp(18).toFloat()
         }
         hero.addView(emblem, LinearLayout.LayoutParams(dp(116), dp(116)).apply { bottomMargin = dp(18) })
-        emblem.animate().alpha(0.72f).setDuration(1500).withEndAction {
-            if (!isFinishing) emblem.animate().alpha(1f).setDuration(1500).start()
-        }.start()
+        ObjectAnimator.ofFloat(emblem, View.ALPHA, 0.68f, 1f).apply {
+            duration = 1900
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            start()
+        }
+        ObjectAnimator.ofFloat(emblem, View.SCALE_X, 0.96f, 1.045f).apply {
+            duration = 2300
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            start()
+        }
+        ObjectAnimator.ofFloat(emblem, View.SCALE_Y, 0.96f, 1.045f).apply {
+            duration = 2300
+            repeatMode = ValueAnimator.REVERSE
+            repeatCount = ValueAnimator.INFINITE
+            start()
+        }
         hero.addView(text("GORILLA", 15f, accent, true).apply { gravity = Gravity.CENTER; letterSpacing = 0.28f })
         hero.addView(text("GORILLA AI", 32f, primaryText, true).apply {
             gravity = Gravity.CENTER
@@ -609,8 +629,8 @@ class MainActivity : Activity() {
             text = value
             textSize = 16f
             setTextColor(if (mine) Color.WHITE else primaryText)
-            setLineSpacing(dp(3).toFloat(), 1.02f)
-            setPadding(dp(17), dp(13), dp(17), dp(13))
+            setLineSpacing(dp(4).toFloat(), 1.06f)
+            setPadding(dp(19), dp(15), dp(19), dp(15))
             background = if (mine) GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(accentBubbleColor(), 0xFF49376F.toInt())).apply {
                 cornerRadii = floatArrayOf(dp(21).toFloat(),dp(21).toFloat(),dp(7).toFloat(),dp(7).toFloat(),dp(21).toFloat(),dp(21).toFloat(),dp(21).toFloat(),dp(21).toFloat())
             } else GradientDrawable().apply {
