@@ -640,8 +640,8 @@ class MainActivity : Activity() {
                         }
                     }
                 }
-                val result = SupabaseApi.geminiChat(session.accessToken, history)
-                val answer = result.optString("answer").ifBlank { "Gemini вернул пустой ответ." }
+                val result = SupabaseApi.gigaChat(session.accessToken, history)
+                val answer = result.optString("answer").ifBlank { "GigaChat вернул пустой ответ." }
                 runOnUiThread {
                     messages.removeView(loadingLine)
                     addBubble(answer, false)
