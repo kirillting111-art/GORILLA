@@ -429,7 +429,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(panel, tile)).apply {
                 cornerRadius = dp(26).toFloat()
-                setStroke(dp(1), 0x557F69C9)
+                setStroke(dp(1), 0x557F69C9.toInt())
             }
             setPadding(dp(19), dp(19), dp(19), dp(19))
             elevation = dp(5).toFloat()
