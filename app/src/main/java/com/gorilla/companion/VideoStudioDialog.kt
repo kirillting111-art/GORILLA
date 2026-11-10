@@ -57,6 +57,8 @@ class VideoStudioDialog(private val activity: Activity) {
         val imageMode = modeButton("Фото → видео", false)
         modeRow.addView(textMode, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) })
         modeRow.addView(imageMode, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(6) })
+        textMode.setOnClickListener { mode = 0; textMode.background = rounded(accent, 14); imageMode.background = rounded(tile, 14) }
+        imageMode.setOnClickListener { mode = 1; imageMode.background = rounded(accent, 14); textMode.background = rounded(tile, 14) }
         content.addView(modeRow)
         val prompt = EditText(activity).apply {
             hint = "Например: кинематографичный пролёт камеры над ночным городом, неоновые огни, дождь…"
@@ -144,14 +146,7 @@ class VideoStudioDialog(private val activity: Activity) {
         typeface = Typeface.DEFAULT_BOLD
         setTextColor(if (selected) Color.rgb(27, 24, 40) else Color.WHITE)
         background = rounded(if (selected) accent else tile, 14)
-        setOnClickListener {
-            AlertDialog.Builder(activity).setTitle("Режим генерации")
-                .setItems(arrayOf("Текст → видео", "Фото → видео")) { _, which ->
-                    mode = which
-                    // Keep the selected mode explicit until image upload is wired to the provider.
-                    show()
-                }.show()
-        }
+
     }
 
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(activity).apply {
