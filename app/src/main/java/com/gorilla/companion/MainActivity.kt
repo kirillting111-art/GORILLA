@@ -294,7 +294,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFF0B302B.toInt(), 0xFF155044.toInt(), 0xFF0B2825.toInt())).apply {
                 cornerRadius = dp(25).toFloat()
-                setStroke(dp(1), 0x8876E6C4)
+                setStroke(dp(1), 0x8876E6C4.toInt())
             }
             setPadding(dp(7), dp(5), dp(7), dp(5))
             elevation = dp(7).toFloat()
