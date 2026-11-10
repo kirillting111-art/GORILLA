@@ -7,25 +7,19 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
-import android.view.View
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import org.json.JSONObject
 
-/**
- * First UI layer for the video studio.
- * Provider calls intentionally remain disabled until a server-side video provider is configured.
- */
-class VideoStudioDialog(private val activity: Activity) {
+class VideoStudioDialog(private val activity: Activity, private val accessToken: String?) {
     private val bg = Color.rgb(16, 19, 32)
     private val panel = Color.rgb(31, 37, 57)
     private val tile = Color.rgb(44, 51, 76)
     private val accent = Color.rgb(199, 181, 255)
-    private var mode = 0
-    private var duration = "4 минуты"
-    private var aspect = "16:9 · горизонтальное"
-    private var quality = "Стандартное"
+    private var duration = "5"
+    private var aspect = "16:9"
 
     fun show() {
         val dialog = Dialog(activity)
@@ -48,20 +42,12 @@ class VideoStudioDialog(private val activity: Activity) {
             setOnClickListener { dialog.dismiss() }
         }, LinearLayout.LayoutParams(dp(38), dp(44)))
         content.addView(header)
-        content.addView(label("Опиши идею ролика. Длинные видео будут собираться из отдельных сцен.", 13f, 0xFFB8BED0.toInt()).apply {
+        content.addView(label("Опиши сцену. Сейчас подключена генерация отдельных коротких фрагментов с нативным звуком.", 13f, 0xFFB8BED0.toInt()).apply {
             setPadding(0, dp(7), 0, dp(17))
         })
 
-        val modeRow = LinearLayout(activity).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        val textMode = modeButton("Текст → видео", true)
-        val imageMode = modeButton("Фото → видео", false)
-        modeRow.addView(textMode, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(6) })
-        modeRow.addView(imageMode, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(6) })
-        textMode.setOnClickListener { mode = 0; textMode.background = rounded(accent, 14); imageMode.background = rounded(tile, 14) }
-        imageMode.setOnClickListener { mode = 1; imageMode.background = rounded(accent, 14); textMode.background = rounded(tile, 14) }
-        content.addView(modeRow)
         val prompt = EditText(activity).apply {
-            hint = "Например: кинематографичный пролёт камеры над ночным городом, неоновые огни, дождь…"
+            hint = "Например: кинематографичный пролёт над ночным городом, неон, дождь…"
             setHintTextColor(0xFF9DA6BC.toInt())
             setTextColor(Color.WHITE)
             textSize = 15f
@@ -73,40 +59,63 @@ class VideoStudioDialog(private val activity: Activity) {
         }
         content.addView(prompt, LinearLayout.LayoutParams(-1, dp(142)).apply { topMargin = dp(14) })
 
-        val settings = LinearLayout(activity).apply { orientation = LinearLayout.VERTICAL }
-        content.addView(settings, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
-        fun refreshSettings() {
-            settings.removeAllViews()
-            setting(settings, "Длительность", duration) {
-                choose("Длительность", arrayOf("30 секунд", "1 минута", "2 минуты", "3 минуты", "4 минуты", "5 минут"), duration) { duration = it; refreshSettings() }
-            }
-            setting(settings, "Формат кадра", aspect) {
-                choose("Формат кадра", arrayOf("16:9 · горизонтальное", "9:16 · вертикальное", "1:1 · квадрат"), aspect) { aspect = it; refreshSettings() }
-            }
-            setting(settings, "Качество", quality) {
-                choose("Качество", arrayOf("Стандартное", "Высокое"), quality) { quality = it; refreshSettings() }
-            }
+        setting(content, "Длительность фрагмента", "5 секунд") {
+            AlertDialog.Builder(activity).setTitle("Длительность фрагмента")
+                .setSingleChoiceItems(arrayOf("5 секунд", "10 секунд", "15 секунд"), arrayOf("5", "10", "15").indexOf(duration)) { d, which ->
+                    duration = arrayOf("5", "10", "15")[which]
+                    d.dismiss()
+                }.show()
         }
-        refreshSettings()
+        setting(content, "Формат кадра", "16:9") {
+            AlertDialog.Builder(activity).setTitle("Формат кадра")
+                .setSingleChoiceItems(arrayOf("16:9", "9:16", "1:1"), arrayOf("16:9", "9:16", "1:1").indexOf(aspect)) { d, which ->
+                    aspect = arrayOf("16:9", "9:16", "1:1")[which]
+                    d.dismiss()
+                }.show()
+        }
 
-        val status = label("Цель — ролики примерно до 4 минут. Такой хронометраж обычно собирается из сцен, затем склеивается в один ролик. Видеопровайдер ещё не подключён.", 12f, 0xFFFFD28A.toInt()).apply {
+        val status = label("Звук включён. Задача отправляется в fal через защищённый Supabase-сервер.", 12f, 0xFFB8BED0.toInt()).apply {
             setPadding(dp(13), dp(12), dp(13), dp(12))
-            background = rounded(0xFF493A2C, 14)
+            background = rounded(0xFF29364A.toInt(), 14)
         }
         content.addView(status, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) })
         val generate = TextView(activity).apply {
-            text = "Подключение видеогенератора"
+            text = "Сгенерировать фрагмент"
             textSize = 15f
             typeface = Typeface.DEFAULT_BOLD
             gravity = Gravity.CENTER
             setTextColor(0xFF242033.toInt())
             background = rounded(accent, 17)
-            alpha = 0.55f
             setPadding(dp(12), 0, dp(12), 0)
-            isEnabled = false
+            isEnabled = accessToken != null
+            alpha = if (isEnabled) 1f else .5f
+            setOnClickListener {
+                val description = prompt.text.toString().trim()
+                if (description.length < 8) { prompt.error = "Добавь описание (минимум 8 символов)"; return@setOnClickListener }
+                val token = accessToken ?: return@setOnClickListener
+                isEnabled = false
+                text = "Отправляем в очередь…"
+                Thread {
+                    try {
+                        val submitted = SupabaseApi.submitVideo(token, description, duration, aspect)
+                        val id = submitted.optString("request_id")
+                        activity.runOnUiThread {
+                            text = "Задача отправлена"
+                            status.text = "ID задачи: $id\nСтатус: ${submitted.optString("status", "IN_QUEUE")}"
+                        }
+                        poll(token, id, status, this)
+                    } catch (e: Exception) {
+                        activity.runOnUiThread {
+                            isEnabled = true
+                            text = "Повторить"
+                            status.text = "Ошибка: ${e.message}"
+                        }
+                    }
+                }.start()
+            }
         }
         content.addView(generate, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(14) })
-        content.addView(label("План для длинного ролика: сценарий и раскадровка → генерация сцен → склейка → звук → единый MP4. Очередь, прогресс, предпросмотр и сохранение подключим к серверу.", 12f, 0xFF9DA6BC.toInt()).apply {
+        content.addView(label("Важно: один запрос создаёт максимум 15 секунд. Видео около 4 минут потребует генерации множества сцен и отдельного монтажа в единый MP4 — сборка длинного ролика ещё не подключена.", 12f, 0xFFFFD28A.toInt()).apply {
             setPadding(dp(3), dp(12), dp(3), 0)
         })
         shell.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
@@ -114,6 +123,39 @@ class VideoStudioDialog(private val activity: Activity) {
         dialog.show()
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.window?.setLayout((activity.resources.displayMetrics.widthPixels * .92f).toInt(), (activity.resources.displayMetrics.heightPixels * .86f).toInt())
+    }
+
+    private fun poll(token: String, id: String, status: TextView, button: TextView) {
+        Thread {
+            try {
+                var state = "IN_QUEUE"
+                var tries = 0
+                while (tries < 60 && state != "COMPLETED" && state != "FAILED") {
+                    Thread.sleep(5000)
+                    val data = SupabaseApi.videoStatus(token, id)
+                    state = data.optString("status", state)
+                    val current = state
+                    activity.runOnUiThread { status.text = "Генерация: $current" }
+                    tries++
+                }
+                if (state == "COMPLETED") {
+                    val result = SupabaseApi.videoStatus(token, id, true)
+                    val url = result.optJSONObject("video")?.optString("url").orEmpty()
+                    activity.runOnUiThread {
+                        status.text = if (url.isNotBlank()) "Готово! Видео создано." else "Готово, но ссылка не найдена."
+                        if (url.isNotBlank()) {
+                            button.text = "Открыть видео"
+                            button.isEnabled = true
+                            button.setOnClickListener {
+                                activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                            }
+                        } else button.isEnabled = true
+                    }
+                } else activity.runOnUiThread { status.text = "Статус: $state. Проверь задачу позже."; button.isEnabled = true }
+            } catch (e: Exception) {
+                activity.runOnUiThread { status.text = "Ошибка проверки: ${e.message}"; button.isEnabled = true }
+            }
+        }.start()
     }
 
     private fun setting(parent: LinearLayout, title: String, value: String, action: () -> Unit) {
@@ -130,23 +172,7 @@ class VideoStudioDialog(private val activity: Activity) {
             addView(label(value, 14f, Color.WHITE, true))
         }, LinearLayout.LayoutParams(0, -2, 1f))
         row.addView(label("⌄", 21f, accent))
-        parent.addView(row, LinearLayout.LayoutParams(-1, dp(58)).apply { bottomMargin = dp(7) })
-    }
-
-    private fun choose(title: String, options: Array<String>, current: String, onSelected: (String) -> Unit) {
-        AlertDialog.Builder(activity).setTitle(title).setSingleChoiceItems(options, options.indexOf(current)) { d, which ->
-            onSelected(options[which]); d.dismiss()
-        }.setNegativeButton("Отмена", null).show()
-    }
-
-    private fun modeButton(title: String, selected: Boolean) = TextView(activity).apply {
-        text = title
-        gravity = Gravity.CENTER
-        textSize = 13f
-        typeface = Typeface.DEFAULT_BOLD
-        setTextColor(if (selected) Color.rgb(27, 24, 40) else Color.WHITE)
-        background = rounded(if (selected) accent else tile, 14)
-
+        parent.addView(row, LinearLayout.LayoutParams(-1, dp(58)).apply { topMargin = dp(8) })
     }
 
     private fun label(value: String, size: Float, color: Int, bold: Boolean = false) = TextView(activity).apply {
