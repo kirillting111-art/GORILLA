@@ -1,6 +1,7 @@
 const MODEL = "minimax/h3-max-turbo/text-to-video";
 const ENDPOINT = "https://queue.fal.run/" + MODEL;
 const cors = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type", "Access-Control-Allow-Methods": "POST, OPTIONS" };
+// Android sends { action: "submit" | "status" | "result", request_id } through SupabaseApi.
 const reply = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...cors, "Content-Type": "application/json" } });
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
@@ -20,7 +21,7 @@ Deno.serve(async (req) => {
       if (![5, 10, 15].includes(duration)) return reply({ error: "Доступны фрагменты 5, 10 или 15 секунд" }, 400);
       const aspect = ["16:9", "9:16", "1:1"].includes(body.aspect_ratio) ? body.aspect_ratio : "16:9";
       const response = await fetch(ENDPOINT, { method: "POST", headers, body: JSON.stringify({ prompt, duration, prompt_expansion_mode: "balanced", resolution: "768P", aspect_ratio: aspect, enable_safety_checker: true }) });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) return reply({ error: data.detail ?? data.message ?? "fal не принял задачу" }, response.status);
       return reply({ request_id: data.request_id, status: data.status ?? "IN_QUEUE", model: MODEL });
     }
@@ -29,7 +30,7 @@ Deno.serve(async (req) => {
       if (!/^[a-zA-Z0-9-]{8,}$/.test(id)) return reply({ error: "Некорректный ID задачи" }, 400);
       const suffix = action === "status" ? "/status" : "";
       const response = await fetch(ENDPOINT + "/requests/" + encodeURIComponent(id) + suffix, { headers });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok) return reply({ error: data.detail ?? data.message ?? "Не удалось получить результат" }, response.status);
       return reply(data);
     }
