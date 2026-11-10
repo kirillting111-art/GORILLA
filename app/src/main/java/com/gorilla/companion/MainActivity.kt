@@ -290,6 +290,12 @@ class MainActivity : Activity() {
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFF171B2B.toInt(), 0xFF25203D.toInt())).apply {
+                cornerRadius = dp(19).toFloat()
+                setStroke(dp(1), 0x447F69C9)
+            }
+            setPadding(dp(5), dp(3), dp(5), dp(3))
+            elevation = dp(4).toFloat()
         }
         top.addView(text("☰", 27f, primaryText).apply {
             gravity = Gravity.CENTER
@@ -390,27 +396,72 @@ class MainActivity : Activity() {
     }
 
     private fun showWelcome() {
-        val brand = LinearLayout(this).apply {
+        val hero = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
-            setPadding(dp(8), dp(24), dp(8), dp(18))
+            setPadding(dp(12), dp(28), dp(12), dp(24))
         }
-        brand.addView(text("GORILLA", 26f, accent, true).apply { gravity = Gravity.CENTER })
-        brand.addView(text("GORILLA AI", 30f, Color.WHITE, true).apply {
+        val emblem = TextView(this).apply {
+            text = "◉"
+            textSize = 68f
             gravity = Gravity.CENTER
-            setPadding(0, dp(10), 0, dp(4))
+            setTextColor(accent)
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF302052.toInt(), 0xFF11182C.toInt(), 0xFF40246A.toInt())).apply {
+                shape = GradientDrawable.OVAL
+                setStroke(dp(1), 0xFF9B72FF.toInt())
+            }
+            elevation = dp(18).toFloat()
+        }
+        hero.addView(emblem, LinearLayout.LayoutParams(dp(116), dp(116)).apply { bottomMargin = dp(18) })
+        emblem.animate().alpha(0.72f).setDuration(1500).withEndAction {
+            if (!isFinishing) emblem.animate().alpha(1f).setDuration(1500).start()
+        }.start()
+        hero.addView(text("GORILLA", 15f, accent, true).apply { gravity = Gravity.CENTER; letterSpacing = 0.28f })
+        hero.addView(text("GORILLA AI", 32f, primaryText, true).apply {
+            gravity = Gravity.CENTER
+            setPadding(0, dp(7), 0, dp(4))
+            letterSpacing = 0.02f
         })
-        brand.addView(text(tr("Твой ИИ. Твои идеи. Твой мир.", "Your AI. Your ideas. Your world.", "你的人工智能，你的想法，你的世界。", "Твій ШІ. Твої ідеї. Твій світ."), 15f, 0xFFC5C0D6.toInt()).apply { gravity = Gravity.CENTER })
-        messages.addView(brand)
+        hero.addView(text(tr("Твой ИИ. Твои идеи. Твой мир.", "Your AI. Your ideas. Your world.", "你的人工智能，你的想法，你的世界。", "Твій ШІ. Твої ідеї. Твій світ."), 15f, secondaryText).apply { gravity = Gravity.CENTER })
+        messages.addView(hero)
+
         val welcome = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = rounded(panel, 24)
-            setPadding(dp(16), dp(18), dp(16), dp(16))
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(panel, tile)).apply {
+                cornerRadius = dp(26).toFloat()
+                setStroke(dp(1), 0x557F69C9)
+            }
+            setPadding(dp(19), dp(19), dp(19), dp(19))
+            elevation = dp(5).toFloat()
         }
         val greetingName = accountProfile?.displayName?.takeIf { it.isNotBlank() } ?: "друг"
         welcome.addView(text(tr("Приветствуем, $greetingName!", "Welcome, $greetingName!", "欢迎你，$greetingName！", "Вітаємо, $greetingName!"), 21f, primaryText, true))
-        welcome.addView(text(tr("Спасибо, что выбрал GORILLA AI. Рады быть рядом и помогать тебе!", "Thanks for choosing GORILLA AI. We're glad to be here to help!", "感谢你选择 GORILLA AI。很高兴能陪伴并帮助你！", "Дякуємо, що обрав GORILLA AI. Раді бути поруч і допомагати тобі!"), 14f, secondaryText).apply { setPadding(0, dp(8), 0, 0) })
-        messages.addView(welcome)
+        welcome.addView(text(tr("Я GORILLA — твой AI-помощник. Спроси что угодно или выбери идею ниже.", "I'm GORILLA, your AI assistant. Ask anything or choose an idea below.", "我是 GORILLA，你的 AI 助手。你可以提问或选择下面的灵感。", "Я GORILLA — твій AI-помічник. Запитай про що завгодно або обери ідею нижче."), 14f, secondaryText).apply { setPadding(0, dp(8), 0, 0) })
+        messages.addView(welcome, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) })
+
+        val ideas = listOf(
+            tr("✦  Придумай идею", "✦  Give me an idea", "✦  给我一个想法", "✦  Запропонуй ідею"),
+            tr("⌘  Помоги с учёбой", "⌘  Help me study", "⌘  帆助我学习", "⌘  Допоможи з навчанням"),
+            tr("⚡  Напиши текст", "⚡  Write something", "⚡  写一段文字", "⚡  Напиши текст")
+        )
+        ideas.forEach { label ->
+            val chip = TextView(this).apply {
+                text = label
+                textSize = 14f
+                setTextColor(primaryText)
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(16), dp(13), dp(16), dp(13))
+                background = GradientDrawable().apply { setColor(tile); cornerRadius = dp(17).toFloat(); setStroke(dp(1), 0x557F69C9) }
+                setOnClickListener { input.setText(label.substringAfter("  ")); input.setSelection(input.text.length); input.requestFocus() }
+            }
+            messages.addView(chip, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
+            chip.alpha = 0f
+            chip.translationY = dp(12).toFloat()
+            chip.animate().alpha(1f).translationY(0f).setDuration(360).start()
+        }
+        welcome.alpha = 0f
+        welcome.translationY = dp(14).toFloat()
+        welcome.animate().alpha(1f).translationY(0f).setDuration(420).start()
     }
 
     private fun historyKey(): String = "chats_${authSession?.userId ?: "local"}"
@@ -558,16 +609,25 @@ class MainActivity : Activity() {
             text = value
             textSize = 16f
             setTextColor(if (mine) Color.WHITE else primaryText)
-            setPadding(dp(15), dp(12), dp(15), dp(12))
-            background = rounded(if (mine) accentBubbleColor() else panel, 20)
+            setLineSpacing(dp(3).toFloat(), 1.02f)
+            setPadding(dp(17), dp(13), dp(17), dp(13))
+            background = if (mine) GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(accentBubbleColor(), 0xFF49376F.toInt())).apply {
+                cornerRadii = floatArrayOf(dp(21).toFloat(),dp(21).toFloat(),dp(7).toFloat(),dp(7).toFloat(),dp(21).toFloat(),dp(21).toFloat(),dp(21).toFloat(),dp(21).toFloat())
+            } else GradientDrawable().apply {
+                setColor(panel); cornerRadius = dp(20).toFloat(); setStroke(dp(1), 0x337F69C9)
+            }
+            elevation = dp(2).toFloat()
         }
         val line = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = if (mine) Gravity.END else Gravity.START
-            setPadding(dp(4), dp(6), dp(4), dp(6))
-            addView(bubble, LinearLayout.LayoutParams(-2, -2).apply { width = (resources.displayMetrics.widthPixels * 0.78f).toInt() })
+            setPadding(dp(3), dp(7), dp(3), dp(7))
+            addView(bubble, LinearLayout.LayoutParams(-2, -2).apply { width = (resources.displayMetrics.widthPixels * 0.80f).toInt() })
         }
         messages.addView(line)
+        line.alpha = 0f
+        line.translationY = dp(10).toFloat()
+        line.animate().alpha(1f).translationY(0f).setDuration(240).start()
         scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
     }
 
