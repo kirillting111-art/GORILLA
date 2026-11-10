@@ -33,12 +33,12 @@ import org.json.JSONObject
 import java.util.UUID
 
 class MainActivity : Activity() {
-    private val themeName: String get() = prefsUi.getString("theme", "Тёмная") ?: "Тёмная"
+    private val themeName: String get() = prefsUi.getString("theme", "Неоновая") ?: "Неоновая"
     private val lightTheme: Boolean get() = themeName == "Светлая"
-    private val bg: Int get() = when (themeName) { "Светлая" -> Color.rgb(246,247,251); "Неоновая" -> Color.rgb(7,10,24); "Лавандовая" -> Color.rgb(28,22,43); else -> Color.rgb(15,19,30) }
-    private val panel: Int get() = when (themeName) { "Светлая" -> Color.WHITE; "Неоновая" -> Color.rgb(15,23,48); "Лавандовая" -> Color.rgb(48,38,68); else -> Color.rgb(31,39,58) }
-    private val tile: Int get() = when (themeName) { "Светлая" -> Color.rgb(235,237,246); "Неоновая" -> Color.rgb(23,37,72); "Лавандовая" -> Color.rgb(66,52,91); else -> Color.rgb(49,60,87) }
-    private val accent: Int get() = when (themeName) { "Светлая" -> Color.rgb(111,86,190); "Неоновая" -> Color.rgb(70,235,220); "Лавандовая" -> Color.rgb(211,184,255); else -> Color.rgb(199,181,255) }
+    private val bg: Int get() = when (themeName) { "Светлая" -> Color.rgb(246,247,251); "Неоновая" -> Color.rgb(5,18,20); "Лавандовая" -> Color.rgb(28,22,43); else -> Color.rgb(15,19,30) }
+    private val panel: Int get() = when (themeName) { "Светлая" -> Color.WHITE; "Неоновая" -> Color.rgb(10,34,36); "Лавандовая" -> Color.rgb(48,38,68); else -> Color.rgb(31,39,58) }
+    private val tile: Int get() = when (themeName) { "Светлая" -> Color.rgb(235,237,246); "Неоновая" -> Color.rgb(16,51,52); "Лавандовая" -> Color.rgb(66,52,91); else -> Color.rgb(49,60,87) }
+    private val accent: Int get() = when (themeName) { "Светлая" -> Color.rgb(111,86,190); "Неоновая" -> Color.rgb(74,225,202); "Лавандовая" -> Color.rgb(211,184,255); else -> Color.rgb(199,181,255) }
     private val primaryText: Int get() = if (lightTheme) Color.rgb(30,32,45) else Color.WHITE
     private val secondaryText: Int get() = if (lightTheme) Color.rgb(93,98,116) else Color.rgb(190,190,208)
     private val composerColor: Int get() = if (lightTheme) Color.rgb(232,234,243) else tile
@@ -292,9 +292,9 @@ class MainActivity : Activity() {
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFF171A2B.toInt(), 0xFF30264D.toInt(), 0xFF211D38.toInt())).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFF102A2B.toInt(), 0xFF174344.toInt(), 0xFF102D31.toInt())).apply {
                 cornerRadius = dp(25).toFloat()
-                setStroke(dp(1), 0x667F69C9)
+                setStroke(dp(1), 0x6670C7B5)
             }
             setPadding(dp(7), dp(5), dp(7), dp(5))
             elevation = dp(7).toFloat()
@@ -411,9 +411,9 @@ class MainActivity : Activity() {
             textSize = 54f
             gravity = Gravity.CENTER
             setTextColor(accent)
-            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF302052.toInt(), 0xFF11182C.toInt(), 0xFF40246A.toInt())).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF14504A.toInt(), 0xFF0B252A.toInt(), 0xFF216B61.toInt())).apply {
                 shape = GradientDrawable.OVAL
-                setStroke(dp(1), 0xFF9B72FF.toInt())
+                setStroke(dp(1), 0xFF62DCC3.toInt())
             }
             elevation = dp(18).toFloat()
         }
@@ -613,15 +613,55 @@ class MainActivity : Activity() {
     private fun sendMessage() {
         val value = input.text.toString().trim()
         if (value.isEmpty()) return
+        val session = authSession
+        if (session == null) { toast("Сначала войди в аккаунт"); return }
         if (welcomeVisible) { messages.removeAllViews(); welcomeVisible = false }
         addBubble(value, true)
         saveChatMessage(value, true)
         input.setText("")
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(input.windowToken, 0)
-        val reply = tr("Интерфейс чата готов. Подключение языковой модели и серверной обработки добавим следующим этапом.", "The chat interface is ready. Connecting the AI model and server processing is the next step.", "聊天界面已准备就绪。下一步将接入语言模型和服务器处理。", "Інтерфейс чату готовий. Підключення мовної моделі та серверної обробки додамо наступним етапом.")
-        addBubble(reply, false)
-        saveChatMessage(reply, false)
+        val loading = addBubble("GORILLA думает…", false)
+        Thread {
+            try {
+                val history = JSONArray()
+                val chats = savedChats()
+                for (i in 0 until chats.length()) {
+                    val chat = chats.optJSONObject(i) ?: continue
+                    if (chat.optString("id") == currentChatId) {
+                        val items = chat.optJSONArray("messages") ?: JSONArray()
+                        val start = (items.length() - 16).coerceAtLeast(0)
+                        for (j in start until items.length()) {
+                            val item = items.optJSONObject(j) ?: continue
+                            history.put(JSONObject()
+                                .put("role", if (item.optBoolean("mine")) "user" else "model")
+                                .put("text", item.optString("text")))
+                        }
+                    }
+                }
+                val result = SupabaseApi.geminiChat(session.accessToken, history)
+                val answer = result.optString("answer").ifBlank { "Gemini вернул пустой ответ." }
+                runOnUiThread {
+                    messages.removeView(loading)
+                    addBubble(answer, false)
+                    saveChatMessage(answer, false)
+                    val sources = result.optJSONArray("sources")
+                    if (sources != null && sources.length() > 0) {
+                        val links = (0 until minOf(sources.length(), 5)).mapNotNull { i ->
+                            sources.optJSONObject(i)?.let { it.optString("title") to it.optString("url") }
+                        }.filter { it.second.startsWith("https://") || it.second.startsWith("http://") }
+                        if (links.isNotEmpty()) addBubble("Источники:\n" + links.joinToString("\n") { "• ${it.first}: ${it.second}" }, false)
+                    }
+                    scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+                }
+            } catch (e: Exception) {
+                runOnUiThread {
+                    messages.removeView(loading)
+                    addBubble("Не удалось получить ответ: ${e.message ?: "ошибка подключения"}", false)
+                    scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+                }
+            }
+        }.start()
     }
 
     private fun addBubble(value: String, mine: Boolean) {
