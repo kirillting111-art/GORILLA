@@ -44,12 +44,12 @@ Deno.serve(async (req) => {
       const response = await fetch(API + "/v1/text-to-video", {
         method: "POST",
         headers,
+        // Let Magic Hour choose the resolution available on the account's plan.
         body: JSON.stringify({
           name: "GORILLA video",
           model: MODEL,
           end_seconds: duration,
           aspect_ratio: aspect,
-          resolution: "720p",
           audio: true,
           style: { prompt },
         }),
