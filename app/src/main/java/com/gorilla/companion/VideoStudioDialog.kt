@@ -23,7 +23,7 @@ class VideoStudioDialog(private val activity: Activity) {
     private val tile = Color.rgb(44, 51, 76)
     private val accent = Color.rgb(199, 181, 255)
     private var mode = 0
-    private var duration = "5 секунд"
+    private var duration = "4 минуты"
     private var aspect = "16:9 · горизонтальное"
     private var quality = "Стандартное"
 
@@ -48,7 +48,7 @@ class VideoStudioDialog(private val activity: Activity) {
             setOnClickListener { dialog.dismiss() }
         }, LinearLayout.LayoutParams(dp(38), dp(44)))
         content.addView(header)
-        content.addView(label("Опиши сцену — настройки можно изменить ниже.", 13f, 0xFFB8BED0.toInt()).apply {
+        content.addView(label("Опиши идею ролика. Длинные видео будут собираться из отдельных сцен.", 13f, 0xFFB8BED0.toInt()).apply {
             setPadding(0, dp(7), 0, dp(17))
         })
 
@@ -78,7 +78,7 @@ class VideoStudioDialog(private val activity: Activity) {
         fun refreshSettings() {
             settings.removeAllViews()
             setting(settings, "Длительность", duration) {
-                choose("Длительность", arrayOf("5 секунд", "8 секунд", "10 секунд"), duration) { duration = it; refreshSettings() }
+                choose("Длительность", arrayOf("30 секунд", "1 минута", "2 минуты", "3 минуты", "4 минуты", "5 минут"), duration) { duration = it; refreshSettings() }
             }
             setting(settings, "Формат кадра", aspect) {
                 choose("Формат кадра", arrayOf("16:9 · горизонтальное", "9:16 · вертикальное", "1:1 · квадрат"), aspect) { aspect = it; refreshSettings() }
@@ -89,7 +89,7 @@ class VideoStudioDialog(private val activity: Activity) {
         }
         refreshSettings()
 
-        val status = label("Провайдер видео ещё не подключён. Поэтому генерация пока выключена — это не имитация готового результата.", 12f, 0xFFFFD28A.toInt()).apply {
+        val status = label("Цель — ролики примерно до 4 минут. Такой хронометраж обычно собирается из сцен, затем склеивается в один ролик. Видеопровайдер ещё не подключён.", 12f, 0xFFFFD28A.toInt()).apply {
             setPadding(dp(13), dp(12), dp(13), dp(12))
             background = rounded(0xFF493A2C, 14)
         }
@@ -106,7 +106,7 @@ class VideoStudioDialog(private val activity: Activity) {
             isEnabled = false
         }
         content.addView(generate, LinearLayout.LayoutParams(-1, dp(52)).apply { topMargin = dp(14) })
-        content.addView(label("Когда серверный провайдер будет подключён, здесь появятся очередь задач, прогресс, предпросмотр и сохранение готовых роликов.", 12f, 0xFF9DA6BC.toInt()).apply {
+        content.addView(label("План для длинного ролика: сценарий и раскадровка → генерация сцен → склейка → звук → единый MP4. Очередь, прогресс, предпросмотр и сохранение подключим к серверу.", 12f, 0xFF9DA6BC.toInt()).apply {
             setPadding(dp(3), dp(12), dp(3), 0)
         })
         shell.addView(scroll, LinearLayout.LayoutParams(-1, 0, 1f))
