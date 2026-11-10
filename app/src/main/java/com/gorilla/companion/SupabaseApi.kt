@@ -86,4 +86,12 @@ object SupabaseApi {
         request("/rest/v1/rpc/gorilla_issue_access_code", "POST", token,
             JSONObject().put("target_user", userId)).trim().trim('"')
 
+    fun submitVideo(token: String, prompt: String, duration: String, aspect: String): JSONObject =
+        JSONObject(request("/functions/v1/video-api", "POST", token,
+            JSONObject().put("action", "submit").put("prompt", prompt).put("duration", duration)
+                .put("aspect_ratio", aspect).put("generate_audio", true)))
+
+    fun videoStatus(token: String, requestId: String, result: Boolean = false): JSONObject =
+        JSONObject(request("/functions/v1/video-api", "POST", token,
+            JSONObject().put("action", if (result) "result" else "status").put("request_id", requestId)))
 }
