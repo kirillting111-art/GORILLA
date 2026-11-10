@@ -89,6 +89,9 @@ object SupabaseApi {
     fun geminiChat(token: String, messages: JSONArray): JSONObject =
         JSONObject(request("/functions/v1/gemini-chat", "POST", token, JSONObject().put("messages", messages)))
 
+    fun gigaChat(token: String, messages: JSONArray): JSONObject =
+        JSONObject(request("/functions/v1/gigachat-chat", "POST", token, JSONObject().put("messages", messages)))
+
     fun submitVideo(token: String, prompt: String, duration: String, aspect: String): JSONObject =
         JSONObject(request("/functions/v1/video-api", "POST", token,
             JSONObject().put("action", "submit").put("prompt", prompt).put("duration", duration)
