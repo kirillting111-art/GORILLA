@@ -59,17 +59,19 @@ class VideoStudioDialog(private val activity: Activity, private val accessToken:
         }
         content.addView(prompt, LinearLayout.LayoutParams(-1, dp(142)).apply { topMargin = dp(14) })
 
-        setting(content, "Длительность фрагмента", "5 секунд") {
+        setting(content, "Длительность фрагмента", "15 секунд") { valueView ->
             AlertDialog.Builder(activity).setTitle("Длительность фрагмента")
                 .setSingleChoiceItems(arrayOf("5 секунд", "10 секунд", "15 секунд"), arrayOf("5", "10", "15").indexOf(duration)) { d, which ->
                     duration = arrayOf("5", "10", "15")[which]
+                    valueView.text = "$duration секунд"
                     d.dismiss()
                 }.show()
         }
-        setting(content, "Формат кадра", "16:9") {
+        setting(content, "Формат кадра", aspect) { valueView ->
             AlertDialog.Builder(activity).setTitle("Формат кадра")
                 .setSingleChoiceItems(arrayOf("16:9", "9:16", "1:1"), arrayOf("16:9", "9:16", "1:1").indexOf(aspect)) { d, which ->
                     aspect = arrayOf("16:9", "9:16", "1:1")[which]
+                    valueView.text = aspect
                     d.dismiss()
                 }.show()
         }
@@ -158,7 +160,7 @@ class VideoStudioDialog(private val activity: Activity, private val accessToken:
         }.start()
     }
 
-    private fun setting(parent: LinearLayout, title: String, value: String, action: () -> Unit) {
+    private fun setting(parent: LinearLayout, title: String, value: String, action: (TextView) -> Unit) {
         val row = LinearLayout(activity).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -166,12 +168,14 @@ class VideoStudioDialog(private val activity: Activity, private val accessToken:
             setPadding(dp(14), dp(9), dp(14), dp(9))
             setOnClickListener { action() }
         }
+        val valueView = label(value, 14f, Color.WHITE, true)
         row.addView(LinearLayout(activity).apply {
             orientation = LinearLayout.VERTICAL
             addView(label(title, 12f, 0xFF9DA6BC.toInt()))
-            addView(label(value, 14f, Color.WHITE, true))
+            addView(valueView)
         }, LinearLayout.LayoutParams(0, -2, 1f))
         row.addView(label("⌄", 21f, accent))
+        row.setOnClickListener { action(valueView) }
         parent.addView(row, LinearLayout.LayoutParams(-1, dp(58)).apply { topMargin = dp(8) })
     }
 
