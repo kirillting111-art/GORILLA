@@ -785,7 +785,7 @@ class MainActivity : Activity() {
         }
         item("✎   " + tr("Новый чат", "New chat", "新建聊天", "Новий чат")) { startNewChat() }
         item("▧   " + tr("Изображения", "Images", "图片", "Зображення")) { pickImage() }
-        item("🎬   " + tr("Видеостудия", "Video studio", "视频工作室", "Відеостудія")) { VideoStudioDialog(this).show() }
+        item("🎬   " + tr("Видеостудия", "Video studio", "视频工作室", "Відеостудія")) { VideoStudioDialog(this, authSession?.accessToken).show() }
         drawer.addView(text(tr("Недавние", "Recent", "最近", "Недавні"), 16f, secondaryText, true).apply { setPadding(dp(8), dp(24), 0, dp(8)) })
         val recent = (0 until savedChats().length()).mapNotNull { savedChats().optJSONObject(it) }
             .sortedByDescending { it.optLong("updated") }
