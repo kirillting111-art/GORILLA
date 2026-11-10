@@ -268,10 +268,15 @@ class MainActivity : Activity() {
     private fun toast(message: String) = Toast.makeText(this, message, Toast.LENGTH_LONG).show()
 
     private fun buildScreen() {
+        // Keep the composer in the visible area when the Android IME opens.
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        window.decorView.systemUiVisibility = 0
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(if (lightTheme) Color.rgb(246,247,251) else bg)
             setPadding(dp(16), dp(10), dp(16), dp(10))
+            clipChildren = false
+            clipToPadding = false
         }
 
         val top = LinearLayout(this).apply {
@@ -293,7 +298,9 @@ class MainActivity : Activity() {
         root.addView(top)
 
         scroll = ScrollView(this).apply {
-            isFillViewport = true
+            isFillViewport = false
+            isSmoothScrollingEnabled = true
+            descendantFocusability = ViewGroup.FOCUS_BEFORE_DESCENDANTS
             clipToPadding = false
             setPadding(0, dp(12), 0, dp(8))
         }
@@ -335,6 +342,9 @@ class MainActivity : Activity() {
             background = null
             setPadding(dp(8), dp(8), dp(4), dp(8))
         }
+        input.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
+        }
         composer.addView(input, LinearLayout.LayoutParams(0, -2, 1f))
         composer.addView(text("▣", 23f, accent).apply {
             gravity = Gravity.CENTER
@@ -344,7 +354,7 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setOnClickListener { sendMessage() }
         }, LinearLayout.LayoutParams(dp(42), dp(44)))
-        root.addView(composer, LinearLayout.LayoutParams(-1, -2))
+        root.addView(composer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
 
         setContentView(root)
         purgeExpiredChats()
