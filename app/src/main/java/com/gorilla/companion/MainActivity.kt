@@ -1,5 +1,6 @@
 package com.gorilla.companion
 
+import android.Manifest
 import android.app.Activity
 import android.app.AlertDialog
 import android.app.Dialog
@@ -9,6 +10,10 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.net.Uri
 import android.os.Bundle
+import android.content.pm.PackageManager
+import android.speech.RecognitionListener
+import android.speech.RecognizerIntent
+import android.speech.SpeechRecognizer
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
@@ -41,6 +46,8 @@ class MainActivity : Activity() {
     private var authSession: SupabaseApi.Session? = null
     private var accountProfile: SupabaseApi.Profile? = null
     private var selectedAvatarUri: Uri? = null
+    private var speechRecognizer: SpeechRecognizer? = null
+    private var listeningForSpeech = false
     private var currentChatId: String = UUID.randomUUID().toString()
     private var welcomeVisible = true
     private val prefsUi by lazy { getSharedPreferences("gorilla_ui", MODE_PRIVATE) }
@@ -324,7 +331,12 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER
             setOnClickListener { showAttachments() }
         }
-        composer.addView(plus, LinearLayout.LayoutParams(dp(42), dp(48)))
+        composer.addView(plus, LinearLayout.LayoutParams(dp(38), dp(48)))
+        composer.addView(text("🎙", 20f, accent).apply {
+            gravity = Gravity.CENTER
+            contentDescription = tr("Голосовой ввод", "Voice input", "语音输入", "Голосове введення")
+            setOnClickListener { toggleSpeechInput() }
+        }, LinearLayout.LayoutParams(dp(38), dp(44)))
         input = EditText(this).apply {
             hint = tr("Спросить GORILLA AI", "Ask GORILLA AI", "向 GORILLA AI 提问", "Запитати GORILLA AI")
             imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEND
@@ -441,6 +453,91 @@ class MainActivity : Activity() {
         }
         if (!replaced) updated.put(chat)
         prefs.edit().putString(historyKey(), updated.toString()).apply()
+    }
+
+
+    private fun toggleSpeechInput() {
+        if (listeningForSpeech) {
+            speechRecognizer?.stopListening()
+            listeningForSpeech = false
+            toast(tr("Прослушивание остановлено", "Listening stopped", "已停止聆听", "Прослуховування зупинено"))
+            return
+        }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            toast(tr("На устройстве недоступно распознавание речи. Проверь системный сервис Google.", "Speech recognition is unavailable on this device.", "此设备无法使用语音识别。", "На пристрої недоступне розпізнавання мовлення."))
+            return
+        }
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 210)
+            return
+        }
+        startSpeechRecognition()
+    }
+
+    private fun startSpeechRecognition() {
+        try {
+            speechRecognizer?.destroy()
+            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(this)
+            speechRecognizer?.setRecognitionListener(object : RecognitionListener {
+                override fun onReadyForSpeech(params: Bundle?) {
+                    listeningForSpeech = true
+                    runOnUiThread { toast(tr("Слушаю тебя…", "I'm listening…", "我在听…", "Слухаю тебе…")) }
+                }
+                override fun onBeginningOfSpeech() {}
+                override fun onRmsChanged(rmsdB: Float) {}
+                override fun onBufferReceived(buffer: ByteArray?) {}
+                override fun onEndOfSpeech() { listeningForSpeech = false }
+                override fun onError(error: Int) {
+                    listeningForSpeech = false
+                    val message = when (error) {
+                        SpeechRecognizer.ERROR_NO_MATCH, SpeechRecognizer.ERROR_SPEECH_TIMEOUT -> tr("Не расслышал. Попробуй ещё раз.", "I didn't catch that. Try again.", "没有听清，请再试一次。", "Не розчув. Спробуй ще раз.")
+                        SpeechRecognizer.ERROR_INSUFFICIENT_PERMISSIONS -> tr("Нужно разрешение на микрофон.", "Microphone permission is required.", "需要麦克风权限。", "Потрібен дозвіл на мікрофон.")
+                        else -> tr("Не удалось распознать речь. Попробуй ещё раз.", "Couldn't recognize speech. Please try again.", "无法识别语音，请重试。", "Не вдалося розпізнати мовлення. Спробуй ще раз.")
+                    }
+                    runOnUiThread { toast(message) }
+                }
+                override fun onResults(results: Bundle?) {
+                    listeningForSpeech = false
+                    val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                    if (!spoken.isNullOrBlank()) runOnUiThread {
+                        val existing = input.text.toString()
+                        input.setText(if (existing.isBlank()) spoken else "$existing $spoken")
+                        input.setSelection(input.text.length)
+                        input.requestFocus()
+                    }
+                }
+                override fun onPartialResults(partialResults: Bundle?) {
+                    val spoken = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
+                    if (!spoken.isNullOrBlank()) runOnUiThread {
+                        input.setText(spoken)
+                        input.setSelection(input.text.length)
+                    }
+                }
+                override fun onEvent(eventType: Int, params: Bundle?) {}
+            })
+            val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+                putExtra(RecognizerIntent.EXTRA_LANGUAGE, when (uiLanguage) { "en" -> "en-US"; "zh" -> "zh-CN"; "uk" -> "uk-UA"; else -> "ru-RU" })
+                putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
+                putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 3)
+            }
+            speechRecognizer?.startListening(intent)
+        } catch (_: Exception) {
+            listeningForSpeech = false
+            toast(tr("Не удалось запустить микрофон.", "Couldn't start the microphone.", "无法启动麦克风。", "Не вдалося запустити мікрофон."))
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 210 && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) startSpeechRecognition()
+        else if (requestCode == 210) toast(tr("Без доступа к микрофону голосовой ввод не работает.", "Voice input needs microphone access.", "语音输入需要麦克风权限。", "Голосове введення потребує доступу до мікрофона."))
+    }
+
+    override fun onDestroy() {
+        speechRecognizer?.destroy()
+        speechRecognizer = null
+        super.onDestroy()
     }
 
     private fun sendMessage() {
