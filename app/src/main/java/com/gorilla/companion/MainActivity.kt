@@ -283,7 +283,7 @@ class MainActivity : Activity() {
         window.decorView.systemUiVisibility = 0
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = if (lightTheme) rounded(Color.rgb(246,247,251), 0) else GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF0B0D18.toInt(), 0xFF111629.toInt(), 0xFF171329.toInt()))
+            background = if (lightTheme) rounded(Color.rgb(246,247,251), 0) else GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF061A18.toInt(), 0xFF082622.toInt(), 0xFF0B3029.toInt()))
             setPadding(dp(16), dp(10), dp(16), dp(10))
             clipChildren = false
             clipToPadding = false
@@ -292,9 +292,9 @@ class MainActivity : Activity() {
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFF102A2B.toInt(), 0xFF174344.toInt(), 0xFF102D31.toInt())).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(0xFF0B302B.toInt(), 0xFF155044.toInt(), 0xFF0B2825.toInt())).apply {
                 cornerRadius = dp(25).toFloat()
-                setStroke(dp(1), 0x6670C7B5)
+                setStroke(dp(1), 0x8876E6C4)
             }
             setPadding(dp(7), dp(5), dp(7), dp(5))
             elevation = dp(7).toFloat()
@@ -331,9 +331,9 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(9), dp(9), dp(9))
-            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(if (lightTheme) 0xFFE8EAF4.toInt() else 0xFF293954.toInt(), if (lightTheme) 0xFFF0ECFA.toInt() else 0xFF303B59.toInt())).apply {
+            background = GradientDrawable(GradientDrawable.Orientation.LEFT_RIGHT, intArrayOf(if (lightTheme) 0xFFE8EAF4.toInt() else 0xFF123C35.toInt(), if (lightTheme) 0xFFF0ECFA.toInt() else 0xFF16483F.toInt())).apply {
                 cornerRadius = dp(34).toFloat()
-                setStroke(dp(1), if (lightTheme) 0x33705AB4 else 0x447F8DCA)
+                setStroke(dp(1), if (lightTheme) 0x33705AB4 else 0x5576D9B8)
             }
             elevation = dp(12).toFloat()
             clipToPadding = false
@@ -471,7 +471,7 @@ class MainActivity : Activity() {
                 setTextColor(primaryText)
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(16), dp(13), dp(16), dp(13))
-                background = GradientDrawable().apply { setColor(tile); cornerRadius = dp(17).toFloat(); setStroke(dp(1), 0x557F69C9) }
+                background = GradientDrawable().apply { setColor(tile); cornerRadius = dp(17).toFloat(); setStroke(dp(1), 0x5576D9B8) }
                 setOnClickListener { input.setText(label.substringAfter("  ")); input.setSelection(input.text.length); input.requestFocus() }
             }
             messages.addView(chip, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
@@ -675,7 +675,7 @@ class MainActivity : Activity() {
             background = if (mine) GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(accentBubbleColor(), 0xFF49376F.toInt())).apply {
                 cornerRadii = floatArrayOf(dp(21).toFloat(),dp(21).toFloat(),dp(7).toFloat(),dp(7).toFloat(),dp(21).toFloat(),dp(21).toFloat(),dp(21).toFloat(),dp(21).toFloat())
             } else GradientDrawable().apply {
-                setColor(panel); cornerRadius = dp(20).toFloat(); setStroke(dp(1), 0x337F69C9)
+                setColor(panel); cornerRadius = dp(20).toFloat(); setStroke(dp(1), 0x5576D9B8)
             }
             elevation = dp(2).toFloat()
         }
@@ -901,7 +901,8 @@ class MainActivity : Activity() {
             row.addView(text("›", 25f, secondaryText)); shell.addView(row, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) })
         }
         settingRow("◎", tr("Язык приложения", "App language", "应用语言", "Мова застосунку"), tr("Русский · English · 中文 · Українська", "Choose interface language", "选择界面语言", "Оберіть мову інтерфейсу")) { chooseLanguage() }
-        settingRow("◐", tr("Внешний вид", "Appearance", "外观", "Зовнішній вигляд"), tr("Тёмная · Светлая · Неоновая · Лавандовая", "Choose a color theme", "选择颜色主题", "Оберіть кольорову тему")) { chooseTheme() }
+        settingRow("◐", tr("Внешний вид", "Appearance", "外观", "Зовнішній вигляд"), tr("Тёмная · Светлая · Изумрудная · Лавандовая", "Choose a color theme", "选择颜色主题", "Оберіть кольорову тему")) { chooseTheme() }
+        settingRow("●", "Цвет моих сообщений", "Выбери отдельный цвет пузырей чата") { chooseBubbleColor() }
         settingRow("Aa", tr("Шрифт", "Font", "字体", "Шрифт"), tr("Стиль текста и читаемость", "Text style and readability", "文字样式与可读性", "Стиль тексту та читабельність")) { chooseFont() }
         settingRow("⌨", tr("Клавиатура Android", "Android keyboard", "安卓键盘", "Клавіатура Android"), tr("Выбрать Gboard или другую клавиатуру", "Choose Gboard or another keyboard", "选择 Gboard 或其他键盘", "Обрати Gboard або іншу клавіатуру")) {
             (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
@@ -926,6 +927,35 @@ class MainActivity : Activity() {
             prefsUi.edit().putString("theme", labels[which]).putBoolean("light_theme", which == 1).apply()
             recreate()
         }.show()
+    }
+
+    private fun chooseBubbleColor() {
+        val names = arrayOf("Изумрудный", "Мятный", "Бирюзовый", "Синий", "Фиолетовый", "Розовый", "Оранжевый")
+        val colors = intArrayOf(
+            Color.rgb(18, 125, 91), Color.rgb(40, 180, 139),
+            Color.rgb(25, 145, 157), Color.rgb(45, 105, 220),
+            Color.rgb(119, 76, 190), Color.rgb(205, 76, 130),
+            Color.rgb(205, 116, 45)
+        )
+        val selected = prefsUi.getInt("bubble_color", colors[0])
+        val index = colors.indexOf(selected).coerceAtLeast(0)
+        AlertDialog.Builder(this).setTitle("Цвет моих сообщений")
+            .setSingleChoiceItems(names, index) { d, which ->
+                prefsUi.edit().putInt("bubble_color", colors[which]).apply()
+                d.dismiss()
+                rebuildCurrentChat()
+            }.setNegativeButton("Отмена", null).show()
+    }
+
+    private fun rebuildCurrentChat() {
+        val chats = savedChats()
+        var current: JSONObject? = null
+        for (i in 0 until chats.length()) {
+            val item = chats.optJSONObject(i) ?: continue
+            if (item.optString("id") == currentChatId) current = item
+        }
+        buildScreen()
+        if (current != null) openSavedChat(current!!)
     }
 
     private fun chooseFont() {
@@ -958,12 +988,12 @@ class MainActivity : Activity() {
         if (bold) setTypeface(typeface, Typeface.BOLD)
     }
 
-    private fun accentBubbleColor(): Int = when (themeName) {
+    private fun accentBubbleColor(): Int = prefsUi.getInt("bubble_color", when (themeName) {
         "Светлая" -> Color.rgb(91, 72, 157)
-        "Неоновая" -> Color.rgb(26, 104, 112)
+        "Неоновая" -> Color.rgb(18, 125, 91)
         "Лавандовая" -> Color.rgb(112, 78, 151)
-        else -> Color.rgb(81, 69, 112)
-    }
+        else -> Color.rgb(18, 125, 91)
+    })
 
     private fun rounded(color: Int, radius: Int) = GradientDrawable().apply {
         setColor(color)
