@@ -166,7 +166,6 @@ class VideoStudioDialog(private val activity: Activity, private val accessToken:
             gravity = Gravity.CENTER_VERTICAL
             background = rounded(tile, 14)
             setPadding(dp(14), dp(9), dp(14), dp(9))
-            setOnClickListener { action() }
         }
         val valueView = label(value, 14f, Color.WHITE, true)
         row.addView(LinearLayout(activity).apply {
