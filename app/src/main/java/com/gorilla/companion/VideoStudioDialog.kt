@@ -18,7 +18,7 @@ class VideoStudioDialog(private val activity: Activity, private val accessToken:
     private val panel = Color.rgb(31, 37, 57)
     private val tile = Color.rgb(44, 51, 76)
     private val accent = Color.rgb(199, 181, 255)
-    private var duration = "5"
+    private var duration = "15"
     private var aspect = "16:9"
 
     fun show() {
@@ -140,7 +140,7 @@ class VideoStudioDialog(private val activity: Activity, private val accessToken:
                 }
                 if (state == "COMPLETED") {
                     val result = SupabaseApi.videoStatus(token, id, true)
-                    val url = result.optJSONObject("video")?.optString("url").orEmpty()
+                    val url = result.optJSONObject("video")?.optString("url") ?: result.optJSONObject("video")?.optString("video_url") ?: result.optString("video_url", "")
                     activity.runOnUiThread {
                         status.text = if (url.isNotBlank()) "Готово! Видео создано." else "Готово, но ссылка не найдена."
                         if (url.isNotBlank()) {
