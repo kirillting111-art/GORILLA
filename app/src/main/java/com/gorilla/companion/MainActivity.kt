@@ -500,8 +500,7 @@ class MainActivity : Activity() {
                     listeningForSpeech = false
                     val spoken = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
                     if (!spoken.isNullOrBlank()) runOnUiThread {
-                        val existing = input.text.toString()
-                        input.setText(if (existing.isBlank()) spoken else "$existing $spoken")
+                        input.setText(spoken)
                         input.setSelection(input.text.length)
                         input.requestFocus()
                     }
