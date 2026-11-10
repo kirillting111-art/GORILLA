@@ -334,9 +334,11 @@ class MainActivity : Activity() {
             setHintTextColor(if (lightTheme) Color.rgb(92, 98, 116) else Color.rgb(190, 196, 214))
             setLinkTextColor(accent)
             highlightColor = accent
-            textSize = 16f
+            textSize = 17f
             maxLines = 4
             minLines = 1
+            gravity = Gravity.CENTER_VERTICAL
+            includeFontPadding = false
             isFocusable = true
             isFocusableInTouchMode = true
             importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
@@ -358,6 +360,18 @@ class MainActivity : Activity() {
         root.addView(composer, LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) })
 
         setContentView(root)
+
+        // Keep the composer above the on-screen keyboard, including Android 15 edge-to-edge.
+        root.setOnApplyWindowInsetsListener { view, insets ->
+            val imeOverlap = if (android.os.Build.VERSION.SDK_INT >= 30) {
+                val ime = insets.getInsets(android.view.WindowInsets.Type.ime()).bottom
+                val navigation = insets.getInsets(android.view.WindowInsets.Type.navigationBars()).bottom
+                (ime - navigation).coerceAtLeast(0)
+            } else 0
+            view.setPadding(dp(16), dp(10), dp(16), dp(10) + imeOverlap)
+            insets
+        }
+
         purgeExpiredChats()
         welcomeVisible = true
         showWelcome()
@@ -671,6 +685,9 @@ class MainActivity : Activity() {
         settingRow("◎", tr("Язык приложения", "App language", "应用语言", "Мова застосунку"), tr("Русский · English · 中文 · Українська", "Choose interface language", "选择界面语言", "Оберіть мову інтерфейсу")) { chooseLanguage() }
         settingRow("◐", tr("Внешний вид", "Appearance", "外观", "Зовнішній вигляд"), tr("Тёмная · Светлая · Неоновая · Лавандовая", "Choose a color theme", "选择颜色主题", "Оберіть кольорову тему")) { chooseTheme() }
         settingRow("Aa", tr("Шрифт", "Font", "字体", "Шрифт"), tr("Стиль текста и читаемость", "Text style and readability", "文字样式与可读性", "Стиль тексту та читабельність")) { chooseFont() }
+        settingRow("⌨", tr("Клавиатура Android", "Android keyboard", "安卓键盘", "Клавіатура Android"), tr("Выбрать Gboard или другую клавиатуру", "Choose Gboard or another keyboard", "选择 Gboard 或其他键盘", "Обрати Gboard або іншу клавіатуру")) {
+            (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showInputMethodPicker()
+        }
         settingRow("▧", tr("Фон чата", "Chat background", "聊天背景", "Тло чату"), tr("Установить своё изображение", "Use your own image", "使用自己的图片", "Встановити власне зображення")) { chooseChatBackground() }
         settingRow("ⓘ", tr("О приложении", "About", "关于应用", "Про застосунок"), "GORILLA AI · 1.4") { AlertDialog.Builder(this).setMessage("GORILLA AI · 1.4").setPositiveButton("OK", null).show() }
         dialog.setContentView(shell); dialog.window?.setBackgroundDrawableResource(android.R.color.transparent); dialog.show(); dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.90f).toInt(), -2)
