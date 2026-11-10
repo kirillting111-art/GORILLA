@@ -621,7 +621,8 @@ class MainActivity : Activity() {
         input.setText("")
         (getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager)
             .hideSoftInputFromWindow(input.windowToken, 0)
-        val loading = addBubble("GORILLA думает…", false)
+        addBubble("GORILLA думает…", false)
+        val loadingLine = messages.getChildAt(messages.childCount - 1)
         Thread {
             try {
                 val history = JSONArray()
@@ -642,7 +643,7 @@ class MainActivity : Activity() {
                 val result = SupabaseApi.geminiChat(session.accessToken, history)
                 val answer = result.optString("answer").ifBlank { "Gemini вернул пустой ответ." }
                 runOnUiThread {
-                    messages.removeView(loading)
+                    messages.removeView(loadingLine)
                     addBubble(answer, false)
                     saveChatMessage(answer, false)
                     val sources = result.optJSONArray("sources")
