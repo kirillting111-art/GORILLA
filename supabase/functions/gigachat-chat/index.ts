@@ -33,8 +33,23 @@ Deno.serve(async (req) => {
     })).filter((m: any) => m.content.trim().length > 0);
     if (!messages.length) return reply({ error: "Нет сообщений для ответа" }, 400);
 
+    // GigaChat TLS uses the Russian Trusted CA. Add its official root and issuing CA
+    // instead of disabling certificate verification.
+    const caUrls = [
+      "https://gu-st.ru/content/lending/russian_trusted_root_ca_pem.crt",
+      "https://gu-st.ru/content/lending/russian_trusted_sub_ca_pem.crt",
+    ];
+    const caCerts: string[] = [];
+    for (const url of caUrls) {
+      const caResponse = await fetch(url);
+      if (!caResponse.ok) throw new Error("Не удалось загрузить официальный сертификат НУЦ Минцифры");
+      caCerts.push(await caResponse.text());
+    }
+    const gigaHttp = Deno.createHttpClient({ caCerts });
+
     const tokenResponse = await fetch("https://ngw.devices.sberbank.ru:9443/api/v2/oauth", {
       method: "POST",
+      client: gigaHttp,
       headers: {
         "Authorization": "Basic " + authKey,
         "RqUID": crypto.randomUUID(),
@@ -45,16 +60,17 @@ Deno.serve(async (req) => {
     });
     const tokenData = await tokenResponse.json().catch(() => ({}));
     if (!tokenResponse.ok || !tokenData.access_token) {
+      gigaHttp.close();
       return reply({ error: "Не удалось получить токен GigaChat. Проверь Authorization Key и доступ API." }, tokenResponse.status || 502);
     }
 
     const response = await fetch("https://api.giga.chat/v1/chat/completions", {
       method: "POST",
+      client: gigaHttp,
       headers: {
         "Authorization": "Bearer " + tokenData.access_token,
         "Content-Type": "application/json",
         "Accept": "application/json",
-        "User-Agent": "GORILLA-AI/1.0",
       },
       body: JSON.stringify({
         model: "GigaChat-2",
@@ -67,6 +83,7 @@ Deno.serve(async (req) => {
       }),
     });
     const data = await response.json().catch(() => ({}));
+    gigaHttp.close();
     if (!response.ok) {
       const message = data.message ?? data.error?.message ?? "GigaChat не смог обработать запрос";
       return reply({ error: String(message) }, response.status);
