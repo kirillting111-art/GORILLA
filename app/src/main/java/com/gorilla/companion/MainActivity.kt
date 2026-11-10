@@ -657,7 +657,7 @@ class MainActivity : Activity() {
                 }
             } catch (e: Exception) {
                 runOnUiThread {
-                    messages.removeView(loading)
+                    messages.removeView(loadingLine)
                     addBubble("Не удалось получить ответ: ${e.message ?: "ошибка подключения"}", false)
                     scroll.post { scroll.fullScroll(View.FOCUS_DOWN) }
                 }
