@@ -304,7 +304,7 @@ class MainActivity : Activity() {
             setOnClickListener { showNavigation() }
         }, LinearLayout.LayoutParams(dp(44), dp(48)))
         val heading = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        heading.addView(text("GORILLA AI", 19f, primaryText, true))
+        heading.addView(text("GORILLA AI", 20f, primaryText, true))
         heading.addView(text("Твой ИИ · ID ${accountProfile?.publicId ?: "—"}", 11f, 0xFFB7B4C8.toInt()))
         top.addView(heading, LinearLayout.LayoutParams(0, -2, 1f))
         top.addView(text("⋮", 28f, primaryText).apply {
@@ -407,8 +407,8 @@ class MainActivity : Activity() {
             setPadding(dp(12), dp(28), dp(12), dp(24))
         }
         val emblem = TextView(this).apply {
-            text = "◉"
-            textSize = 68f
+            text = "🦍"
+            textSize = 54f
             gravity = Gravity.CENTER
             setTextColor(accent)
             background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(0xFF302052.toInt(), 0xFF11182C.toInt(), 0xFF40246A.toInt())).apply {
@@ -436,13 +436,13 @@ class MainActivity : Activity() {
             repeatCount = ValueAnimator.INFINITE
             start()
         }
-        hero.addView(text("GORILLA", 15f, accent, true).apply { gravity = Gravity.CENTER; letterSpacing = 0.28f })
-        hero.addView(text("GORILLA AI", 32f, primaryText, true).apply {
+        hero.addView(text("✦  PERSONAL AI ASSISTANT  ✦", 10f, accent, true).apply { gravity = Gravity.CENTER; letterSpacing = 0.18f })
+        hero.addView(text("GORILLA AI", 34f, primaryText, true).apply {
             gravity = Gravity.CENTER
             setPadding(0, dp(7), 0, dp(4))
             letterSpacing = 0.02f
         })
-        hero.addView(text(tr("Твой ИИ. Твои идеи. Твой мир.", "Your AI. Your ideas. Your world.", "你的人工智能，你的想法，你的世界。", "Твій ШІ. Твої ідеї. Твій світ."), 15f, secondaryText).apply { gravity = Gravity.CENTER })
+        hero.addView(text(tr("Умный помощник для твоих идей и задач", "A smart assistant for your ideas and tasks", "为你的想法和任务提供智能帮助", "Розумний помічник для твоїх ідей та завдань."), 15f, secondaryText).apply { gravity = Gravity.CENTER })
         messages.addView(hero)
 
         val welcome = LinearLayout(this).apply {
