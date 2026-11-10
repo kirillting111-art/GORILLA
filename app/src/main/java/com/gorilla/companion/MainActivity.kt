@@ -51,7 +51,7 @@ class MainActivity : Activity() {
         window.statusBarColor = bg
         window.navigationBarColor = bg
         window.decorView.systemUiVisibility = 0
-        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
+        window.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE or android.view.WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN)
         val prefs = getSharedPreferences("gorilla_auth", MODE_PRIVATE)
         val token = prefs.getString("access_token", null)
         val userId = prefs.getString("user_id", null)
@@ -309,6 +309,8 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(10), dp(8), dp(8), dp(8))
             background = rounded(composerColor, 28)
+            elevation = dp(8).toFloat()
+            clipToPadding = false
         }
         val plus = text("+", 31f, Color.WHITE).apply {
             gravity = Gravity.CENTER
@@ -327,6 +329,9 @@ class MainActivity : Activity() {
             textSize = 16f
             maxLines = 4
             minLines = 1
+            isFocusable = true
+            isFocusableInTouchMode = true
+            importantForAutofill = View.IMPORTANT_FOR_AUTOFILL_NO
             background = null
             setPadding(dp(8), dp(8), dp(4), dp(8))
         }
@@ -592,7 +597,7 @@ class MainActivity : Activity() {
                 .setPositiveButton("ОК", null).show()
         }
         item(tr("Настройки", "Settings", "设置", "Налаштування")) { showSettings() }
-        if (accountProfile?.role == "owner" || accountProfile?.role == "admin") item("Панель владельца") { showAdminPanel() }
+        if (accountProfile?.role == "owner") item("✦   Панель владельца") { showAdminPanel() }
         item("Выйти") {
             getSharedPreferences("gorilla_auth", MODE_PRIVATE).edit().clear().apply()
             authSession = null
@@ -656,7 +661,7 @@ class MainActivity : Activity() {
         settingRow("◐", tr("Внешний вид", "Appearance", "外观", "Зовнішній вигляд"), tr("Тёмная · Светлая · Неоновая · Лавандовая", "Choose a color theme", "选择颜色主题", "Оберіть кольорову тему")) { chooseTheme() }
         settingRow("Aa", tr("Шрифт", "Font", "字体", "Шрифт"), tr("Стиль текста и читаемость", "Text style and readability", "文字样式与可读性", "Стиль тексту та читабельність")) { chooseFont() }
         settingRow("▧", tr("Фон чата", "Chat background", "聊天背景", "Тло чату"), tr("Установить своё изображение", "Use your own image", "使用自己的图片", "Встановити власне зображення")) { chooseChatBackground() }
-        settingRow("ⓘ", tr("О приложении", "About", "关于应用", "Про застосунок"), "GORILLA AI · 1.3") { AlertDialog.Builder(this).setMessage("GORILLA AI · 1.3").setPositiveButton("OK", null).show() }
+        settingRow("ⓘ", tr("О приложении", "About", "关于应用", "Про застосунок"), "GORILLA AI · 1.4") { AlertDialog.Builder(this).setMessage("GORILLA AI · 1.4").setPositiveButton("OK", null).show() }
         dialog.setContentView(shell); dialog.window?.setBackgroundDrawableResource(android.R.color.transparent); dialog.show(); dialog.window?.setLayout((resources.displayMetrics.widthPixels * 0.90f).toInt(), -2)
     }
     private fun chooseLanguage() {
