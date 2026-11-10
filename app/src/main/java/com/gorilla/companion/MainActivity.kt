@@ -316,9 +316,12 @@ class MainActivity : Activity() {
         }
         composer.addView(plus, LinearLayout.LayoutParams(dp(42), dp(48)))
         input = EditText(this).apply {
-            hint = "Спросить GORILLA AI"
+            hint = tr("Спросить GORILLA AI", "Ask GORILLA AI", "向 GORILLA AI 提问", "Запитати GORILLA AI")
+            imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_SEND
+            setOnEditorActionListener { _, actionId, event -> if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_SEND || (event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER && event.action == android.view.KeyEvent.ACTION_UP)) { sendMessage(); true } else false }
             setHintTextColor(if (lightTheme) 0xFF777D91.toInt() else 0xFFB8BED0.toInt())
-            setTextColor(primaryText)
+            setTextColor(if (lightTheme) Color.rgb(25, 28, 42) else Color.WHITE)
+            setHintTextColor(if (lightTheme) Color.rgb(92, 98, 116) else Color.rgb(190, 196, 214))
             setLinkTextColor(accent)
             highlightColor = accent
             textSize = 16f
@@ -363,8 +366,8 @@ class MainActivity : Activity() {
             setPadding(dp(16), dp(18), dp(16), dp(16))
         }
         val greetingName = accountProfile?.displayName?.takeIf { it.isNotBlank() } ?: "друг"
-        welcome.addView(text(tr("Приветствуем, $greetingName!", "Welcome, $greetingName!", "欢迎你，$greetingName！", "Вітаємо, $greetingName!"), 21f, Color.WHITE, true))
-        welcome.addView(text(tr("Спасибо, что выбрал GORILLA AI. Рады быть рядом и помогать тебе!", "Thanks for choosing GORILLA AI. We're glad to be here to help!", "感谢你选择 GORILLA AI。很高兴能陪伴并帮助你！", "Дякуємо, що обрав GORILLA AI. Раді бути поруч і допомагати тобі!"), 14f, 0xFFC5C0D6.toInt()).apply { setPadding(0, dp(8), 0, 0) })
+        welcome.addView(text(tr("Приветствуем, $greetingName!", "Welcome, $greetingName!", "欢迎你，$greetingName！", "Вітаємо, $greetingName!"), 21f, primaryText, true))
+        welcome.addView(text(tr("Спасибо, что выбрал GORILLA AI. Рады быть рядом и помогать тебе!", "Thanks for choosing GORILLA AI. We're glad to be here to help!", "感谢你选择 GORILLA AI。很高兴能陪伴并帮助你！", "Дякуємо, що обрав GORILLA AI. Раді бути поруч і допомагати тобі!"), 14f, secondaryText).apply { setPadding(0, dp(8), 0, 0) })
         messages.addView(welcome)
     }
 
@@ -428,9 +431,9 @@ class MainActivity : Activity() {
         val bubble = TextView(this).apply {
             text = value
             textSize = 16f
-            setTextColor(Color.WHITE)
+            setTextColor(if (mine) Color.WHITE else primaryText)
             setPadding(dp(15), dp(12), dp(15), dp(12))
-            background = rounded(if (mine) 0xFF51456F.toInt() else panel, 20)
+            background = rounded(if (mine) accentBubbleColor() else panel, 20)
         }
         val line = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -560,25 +563,26 @@ class MainActivity : Activity() {
         val drawer = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(24), dp(16), dp(16))
-            setBackgroundColor(Color.rgb(248, 248, 250))
+            background = rounded(bg, 0)
         }
-        drawer.addView(text("GORILLA AI", 24f, Color.BLACK, true).apply { setPadding(0, 0, 0, dp(24)) })
+        drawer.addView(text("GORILLA AI", 24f, primaryText, true).apply { setPadding(0, 0, 0, dp(24)) })
         fun item(label: String, action: () -> Unit) {
             drawer.addView(TextView(this).apply {
                 text = label
                 textSize = 18f
-                setTextColor(Color.rgb(35, 35, 40))
+                setTextColor(primaryText)
+                background = rounded(tile, 14)
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(8), 0, dp(8), 0)
                 setOnClickListener { dialog.dismiss(); action() }
             }, LinearLayout.LayoutParams(-1, dp(52)))
         }
-        item("✎   Новый чат") { startNewChat() }
-        item("▧   Изображения") { pickImage() }
-        drawer.addView(text("Недавние", 16f, 0xFF777777.toInt(), true).apply { setPadding(dp(8), dp(24), 0, dp(8)) })
+        item("✎   " + tr("Новый чат", "New chat", "新建聊天", "Новий чат")) { startNewChat() }
+        item("▧   " + tr("Изображения", "Images", "图片", "Зображення")) { pickImage() }
+        drawer.addView(text(tr("Недавние", "Recent", "最近", "Недавні"), 16f, secondaryText, true).apply { setPadding(dp(8), dp(24), 0, dp(8)) })
         val recent = (0 until savedChats().length()).mapNotNull { savedChats().optJSONObject(it) }
             .sortedByDescending { it.optLong("updated") }
-        if (recent.isEmpty()) drawer.addView(text("Пока нет чатов", 14f, 0xFF999999.toInt()).apply { setPadding(dp(8), dp(12), 0, dp(12)) })
+        if (recent.isEmpty()) drawer.addView(text(tr("Пока нет чатов", "No chats yet", "暂无聊天", "Поки немає чатів"), 14f, secondaryText).apply { setPadding(dp(8), dp(12), 0, dp(12)) })
         recent.take(30).forEach { chat -> item("  " + chat.optString("title", "Новый чат")) { openSavedChat(chat) } }
         drawer.addView(View(this), LinearLayout.LayoutParams(1, 0, 1f))
         item("Мой профиль") {
@@ -587,7 +591,7 @@ class MainActivity : Activity() {
                 .setMessage("ID: ${p?.publicId ?: "—"}\nИмя: ${p?.displayName ?: "—"}")
                 .setPositiveButton("ОК", null).show()
         }
-        item("Настройки") { showSettings() }
+        item(tr("Настройки", "Settings", "设置", "Налаштування")) { showSettings() }
         if (accountProfile?.role == "owner" || accountProfile?.role == "admin") item("Панель владельца") { showAdminPanel() }
         item("Выйти") {
             getSharedPreferences("gorilla_auth", MODE_PRIVATE).edit().clear().apply()
@@ -701,6 +705,13 @@ class MainActivity : Activity() {
             else -> Typeface.DEFAULT
         }
         if (bold) setTypeface(typeface, Typeface.BOLD)
+    }
+
+    private fun accentBubbleColor(): Int = when (themeName) {
+        "Светлая" -> Color.rgb(91, 72, 157)
+        "Неоновая" -> Color.rgb(26, 104, 112)
+        "Лавандовая" -> Color.rgb(112, 78, 151)
+        else -> Color.rgb(81, 69, 112)
     }
 
     private fun rounded(color: Int, radius: Int) = GradientDrawable().apply {
